@@ -156,16 +156,36 @@ export class BrainRepo {
     await this.okt.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { ...this.base, issue_number: number, body });
   }
 
+  /**
+   * Squash-merge. GitHub computes mergeability asynchronously after a PR is opened, so an immediate merge can
+   * answer 405 "not mergeable"; retry briefly. Falls back to a merge commit if the repo disallows squash.
+   */
   async mergePR(number: number, commitTitle: string, commitMessage?: string): Promise<string> {
-    const { data } = await this.okt.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", {
-      ...this.base,
-      pull_number: number,
-      merge_method: "squash",
-      commit_title: commitTitle,
-      commit_message: commitMessage ?? "",
-    });
-    if (!data.merged) throw new Error(`merge failed: ${data.message}`);
-    return data.sha;
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 1500 * attempt));
+      for (const merge_method of ["squash", "merge"] as const) {
+        try {
+          const { data } = await this.okt.request("PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge", {
+            ...this.base,
+            pull_number: number,
+            merge_method,
+            commit_title: commitTitle,
+            commit_message: commitMessage ?? "",
+          });
+          if (data.merged) return data.sha;
+          lastError = new Error(data.message);
+        } catch (e) {
+          lastError = e;
+          const msg = String((e as Error).message ?? "");
+          const status = (e as { status?: number }).status;
+          if (status === 405 && /squash/i.test(msg)) continue; // try the next merge method
+          if (status === 405 || status === 409) break; // not mergeable yet: wait and retry
+          throw e;
+        }
+      }
+    }
+    throw new Error(`merge failed after retries: ${(lastError as Error)?.message ?? lastError}`);
   }
 
   async closePR(number: number): Promise<void> {
