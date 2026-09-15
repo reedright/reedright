@@ -2,9 +2,10 @@
 // Usage: pnpm github:check
 import { githubApp, listInstallations } from "../app/lib/github/app.server";
 
-const r = await githubApp().octokit.request("GET /app");
-const owner = r.data.owner && "login" in r.data.owner ? r.data.owner.login : "?";
-console.log(`app ok: ${r.data.slug} (id ${r.data.id}) owned by ${owner}`);
-console.log(`permissions: ${JSON.stringify(r.data.permissions)}`);
+const { data: app } = await githubApp().octokit.request("GET /app");
+if (!app) throw new Error("GET /app returned nothing; check GITHUB_APP_ID and the private key");
+const owner = app.owner && "login" in app.owner ? app.owner.login : "?";
+console.log(`app ok: ${app.slug} (id ${app.id}) owned by ${owner}`);
+console.log(`permissions: ${JSON.stringify(app.permissions)}`);
 const installs = await listInstallations();
 console.log(`installations (${installs.length}): ${installs.map((i) => `${i.account} #${i.id}`).join(", ") || "none yet"}`);
