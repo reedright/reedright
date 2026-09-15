@@ -1,0 +1,12 @@
+node_modules
+build
+.react-router
+/generated/prisma
+/data/
+.env
+.env.*
+!.env.example
+.DS_Store
+.claude/skills/prisma-*
+.agents/
+skills-lock.json

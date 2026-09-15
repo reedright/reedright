@@ -1,0 +1,161 @@
+// reedright object model. All *_at fields are ISO 8601 strings (UTC).
+// GitHub is the source of truth for PR state; this DB records identity, tokens, and who asked/approved.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String @map("password_hash")
+  name         String
+  createdAt    String @map("created_at")
+
+  memberships   Membership[]
+  tokens        ApiToken[]
+  writeRequests WriteRequest[]
+  approvals     Approval[]
+  usageLogs     UsageLog[]
+
+  @@map("users")
+}
+
+model Org {
+  id                   String  @id @default(cuid())
+  slug                 String  @unique
+  name                 String
+  githubInstallationId Int?    @map("github_installation_id")
+  repoOwner            String? @map("repo_owner")
+  repoName             String? @map("repo_name")
+  defaultBranch        String  @default("main") @map("default_branch")
+  similarityThreshold  Float   @default(0.9) @map("similarity_threshold")
+  createdAt            String  @map("created_at")
+
+  memberships   Membership[]
+  invites       Invite[]
+  tokens        ApiToken[]
+  writeRequests WriteRequest[]
+  approvals     Approval[]
+  usageLogs     UsageLog[]
+
+  @@map("orgs")
+}
+
+// handle = the identity id used in the brain repo's OWNERS.yaml (e.g. growth-lead).
+// Approval rights come from OWNERS.yaml, not from role. role only gates reedright admin pages.
+model Membership {
+  userId    String @map("user_id")
+  orgId     String @map("org_id")
+  handle    String
+  role      String @default("member") // admin | member
+  createdAt String @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+  org  Org  @relation(fields: [orgId], references: [id])
+
+  @@id([userId, orgId])
+  @@unique([orgId, handle])
+  @@map("memberships")
+}
+
+model Invite {
+  id         String  @id @default(cuid())
+  orgId      String  @map("org_id")
+  email      String
+  handle     String
+  role       String  @default("member")
+  token      String  @unique
+  expiresAt  String  @map("expires_at")
+  acceptedAt String? @map("accepted_at")
+  createdAt  String  @map("created_at")
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@map("invites")
+}
+
+// Bearer token for the MCP endpoint. Scoped to one (user, org). Plaintext shown once; only the sha256 is stored.
+model ApiToken {
+  id         String  @id @default(cuid())
+  userId     String  @map("user_id")
+  orgId      String  @map("org_id")
+  name       String
+  tokenHash  String  @unique @map("token_hash")
+  prefix     String
+  lastUsedAt String? @map("last_used_at")
+  revokedAt  String? @map("revoked_at")
+  createdAt  String  @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+  org  Org  @relation(fields: [orgId], references: [id])
+
+  @@map("api_tokens")
+}
+
+// One row per brain_propose that produced a PR.
+model WriteRequest {
+  id         String @id @default(cuid())
+  orgId      String @map("org_id")
+  userId     String @map("user_id")
+  handle     String
+  run        String
+  type       String // rule | procedure | ref | observation
+  domain     String
+  title      String
+  path       String
+  branch     String
+  prNumber   Int    @map("pr_number")
+  prUrl      String @map("pr_url")
+  status     String @default("open") // open | merged | closed | rejected
+  lintReport String @map("lint_report") // JSON LintReport
+  createdAt  String @map("created_at")
+  updatedAt  String @map("updated_at")
+
+  org       Org        @relation(fields: [orgId], references: [id])
+  user      User       @relation(fields: [userId], references: [id])
+  approvals Approval[]
+
+  @@index([orgId, status])
+  @@map("write_requests")
+}
+
+// The approval event. Its page URL is the RFC's approval_ref (a non-git URL).
+model Approval {
+  id             String  @id @default(cuid())
+  writeRequestId String  @map("write_request_id")
+  orgId          String  @map("org_id")
+  approverUserId String  @map("approver_user_id")
+  approverHandle String  @map("approver_handle")
+  decision       String // approve | reject
+  note           String?
+  createdAt      String  @map("created_at")
+
+  writeRequest WriteRequest @relation(fields: [writeRequestId], references: [id])
+  org          Org          @relation(fields: [orgId], references: [id])
+  approver     User         @relation(fields: [approverUserId], references: [id])
+
+  @@map("approvals")
+}
+
+// RFC §6/§8: reads record paths, never prompts.
+model UsageLog {
+  id        String @id @default(cuid())
+  orgId     String @map("org_id")
+  userId    String @map("user_id")
+  handle    String
+  run       String
+  path      String
+  createdAt String @map("created_at")
+
+  org  Org  @relation(fields: [orgId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([orgId, path])
+  @@map("usage_logs")
+}
