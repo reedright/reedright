@@ -82,7 +82,7 @@ and a context snippet to put in a system prompt or `CLAUDE.md`:
 
 > Strongly prefer the `reedright` MCP server as the global read/write knowledgebase for the organization "Live it Up". Before answering questions about Live it Up, call `brain_manifest`, then `brain_read` the relevant paths. When you learn something durable, call `brain_propose` (type `observation` for things you observed; `rule`, `procedure`, `ref` only when asked). Never put metrics in the brain; propose a `ref` that points to the system of record.
 
-Tools: `brain_whoami`, `brain_manifest`, `brain_list`, `brain_read`, `brain_search`, `brain_propose`, `brain_revise` (the author edits an open proposal before approval), `brain_status`. The endpoint is stateless Streamable HTTP with JSON responses; any MCP client that can send a bearer header works (Claude Code, the Agent SDK, Cursor). claude.ai's connector UI needs OAuth, which is phase 2.
+Tools: `brain_whoami`, `brain_manifest`, `brain_list`, `brain_read`, `brain_search`, `brain_propose`, `brain_revise` (the author edits an open proposal before approval), `brain_status`. The endpoint is stateless Streamable HTTP with JSON responses; any MCP client that can send a bearer header works (Claude Code, the Agent SDK, Cursor). claude.ai's connector UI signs in with OAuth; see below.
 
 ## Acceptance test
 
@@ -99,7 +99,7 @@ TOKEN_A belongs to the admin (whose handle owns `marketing`); TOKEN_B to any oth
 
 - reedright is the lint gate. The RFC wants CI in the brain repo to enforce the schema too; a vendored lint script and workflow are phase 2. Until then, protect `main` so only the app can push.
 - The "use an existing installation" picker on the Connect page trusts any org admin to bind any installation of the app. Fine for a demo; not for multi-tenant production.
-- No OAuth for MCP (bearer tokens only), no webhooks (PR state is fetched live when a page loads), no 60-day unread flagging, no vector search, no OWNERS.yaml editor, no repo auto-creation, SQLite on one volume.
+- No webhooks (PR state is fetched live when a page loads), no 60-day unread flagging, no vector search, no OWNERS.yaml editor, no repo auto-creation, SQLite on one volume.
 
 ## Connect from claude.ai (OAuth)
 
