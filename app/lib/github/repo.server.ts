@@ -136,6 +136,10 @@ export class BrainRepo {
     return { number: data.number, htmlUrl: data.html_url };
   }
 
+  async updatePR(number: number, patch: { title?: string; body?: string }): Promise<void> {
+    await this.okt.request("PATCH /repos/{owner}/{repo}/pulls/{pull_number}", { ...this.base, pull_number: number, ...patch });
+  }
+
   async getPR(number: number): Promise<PRInfo> {
     const { data } = await this.okt.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { ...this.base, pull_number: number });
     return { number: data.number, htmlUrl: data.html_url, state: data.state, merged: Boolean(data.merged_at), headRef: data.head.ref, headSha: data.head.sha, title: data.title };

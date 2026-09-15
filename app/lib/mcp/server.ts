@@ -10,6 +10,7 @@ import { parseManifest } from "../brain/manifest";
 import { domainsOwnedBy, parseOwners } from "../brain/owners";
 import { MANIFEST_PATH, OWNERS_PATH } from "../brain/paths";
 import { ProposeError, propose } from "../brain/propose.server";
+import { revise } from "../brain/revise.server";
 import { ENTRY_TYPES, ENTRY_SLUG_RE, HANDLE_RE } from "../brain/schema";
 
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] });
@@ -150,6 +151,36 @@ export function buildServer(ctx: TokenContext): McpServer {
     async (input) => {
       try {
         return text(await propose(ctx, input));
+      } catch (e) {
+        if (e instanceof ProposeError) return fail({ error: e.message, lint: e.report ? { errors: e.report.errors, warnings: e.report.warnings, similarity: e.report.similarity } : undefined });
+        return fail({ error: (e as Error).message });
+      }
+    },
+  );
+
+  server.registerTool(
+    "brain_revise",
+    {
+      title: "Revise your open proposal",
+      description: [
+        "Edit one of your own proposals while it is still open (a rule, procedure, or ref waiting for approval). Only the author can revise.",
+        "Pass only the fields you want to change: title, body, source, review_by, and for refs system and locator. Type, domain, path, and author stay fixed.",
+        "The file is re-linted and a new commit is pushed to the same pull request, so the approver sees the latest version.",
+        "Observations cannot be revised because they merge immediately; propose a new one with supersedes instead.",
+      ].join(" "),
+      inputSchema: {
+        request_id: z.string().min(1),
+        title: z.string().min(3).max(120).optional(),
+        body: z.string().min(1).optional().describe("Markdown without the title heading; the title is added as the H1"),
+        source: z.string().min(1).optional(),
+        review_by: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        system: z.string().optional().describe("refs only"),
+        locator: z.string().optional().describe("refs only"),
+      },
+    },
+    async (input) => {
+      try {
+        return text(await revise(ctx, input));
       } catch (e) {
         if (e instanceof ProposeError) return fail({ error: e.message, lint: e.report ? { errors: e.report.errors, warnings: e.report.warnings, similarity: e.report.similarity } : undefined });
         return fail({ error: (e as Error).message });

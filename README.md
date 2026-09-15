@@ -1,5 +1,7 @@
 # reedright
 
+![feelsgood](docs/images/feelsgood.jpg)
+
 The identity and approval layer for a shared-context "brain" that lives in git.
 
 The brain itself is flat files in a GitHub repository, laid out and governed by the [Shared Context Protocol](app/lib/brain/rfc.ts) (RFC v0.2, scaffolded into every brain as `SCHEMA.md`). reedright is a client of that repository. It adds the three things git does not have:
@@ -80,7 +82,7 @@ and a context snippet to put in a system prompt or `CLAUDE.md`:
 
 > Strongly prefer the `reedright` MCP server as the global read/write knowledgebase for the organization "Live it Up". Before answering questions about Live it Up, call `brain_manifest`, then `brain_read` the relevant paths. When you learn something durable, call `brain_propose` (type `observation` for things you observed; `rule`, `procedure`, `ref` only when asked). Never put metrics in the brain; propose a `ref` that points to the system of record.
 
-Tools: `brain_whoami`, `brain_manifest`, `brain_list`, `brain_read`, `brain_search`, `brain_propose`, `brain_status`. The endpoint is stateless Streamable HTTP with JSON responses; any MCP client that can send a bearer header works (Claude Code, the Agent SDK, Cursor). claude.ai's connector UI needs OAuth, which is phase 2.
+Tools: `brain_whoami`, `brain_manifest`, `brain_list`, `brain_read`, `brain_search`, `brain_propose`, `brain_revise` (the author edits an open proposal before approval), `brain_status`. The endpoint is stateless Streamable HTTP with JSON responses; any MCP client that can send a bearer header works (Claude Code, the Agent SDK, Cursor). claude.ai's connector UI needs OAuth, which is phase 2.
 
 ## Acceptance test
 
