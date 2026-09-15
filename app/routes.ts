@@ -12,5 +12,7 @@ export default [
     index("routes/orgs.$slug._index.tsx"),
     route("members", "routes/orgs.$slug.members.tsx"),
     route("tokens", "routes/orgs.$slug.tokens.tsx"),
+    route("connect", "routes/orgs.$slug.connect.tsx"),
   ]),
+  route("github/setup", "routes/github.setup.ts"),
 ] satisfies RouteConfig;
