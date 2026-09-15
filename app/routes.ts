@@ -13,6 +13,9 @@ export default [
     route("members", "routes/orgs.$slug.members.tsx"),
     route("tokens", "routes/orgs.$slug.tokens.tsx"),
     route("connect", "routes/orgs.$slug.connect.tsx"),
+    route("approvals", "routes/orgs.$slug.approvals.tsx"),
+    route("approvals/:id", "routes/orgs.$slug.approvals.$id.tsx"),
   ]),
   route("github/setup", "routes/github.setup.ts"),
+  route("mcp", "routes/mcp.ts"),
 ] satisfies RouteConfig;
