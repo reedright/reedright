@@ -98,3 +98,11 @@ TOKEN_A belongs to the admin (whose handle owns `marketing`); TOKEN_B to any oth
 - reedright is the lint gate. The RFC wants CI in the brain repo to enforce the schema too; a vendored lint script and workflow are phase 2. Until then, protect `main` so only the app can push.
 - The "use an existing installation" picker on the Connect page trusts any org admin to bind any installation of the app. Fine for a demo; not for multi-tenant production.
 - No OAuth for MCP (bearer tokens only), no webhooks (PR state is fetched live when a page loads), no 60-day unread flagging, no vector search, no OWNERS.yaml editor, no repo auto-creation, SQLite on one volume.
+
+## Connect from claude.ai (OAuth)
+
+reedright is also an OAuth 2.1 authorization server, so MCP clients that sign people in (claude.ai custom connectors, Claude Code without a pasted token) work without minting anything by hand.
+
+In claude.ai: Settings → Connectors → **Add custom connector** → URL `https://reedright.info/mcp`. Leave Authentication on **Sign in now** (claude.ai detects it from the 401) and OAuth client on **Use Claude's published identity** (or **Register automatically**; both are supported). Click Add, then Connect: reedright opens its consent page, you log in if needed, pick the organization the connector is for, and approve. From Claude Code, `claude mcp add --transport http reedright https://reedright.info/mcp` with no header triggers the same sign-in.
+
+What is implemented: RFC 8414 and RFC 9728 metadata under `/.well-known/`, PKCE S256 only, dynamic client registration (RFC 7591), Client ID Metadata Documents (an https `client_id` whose JSON body describes the client, cached for an hour), single-use codes with replay revocation, seven-day access tokens, ninety-day refresh tokens with rotation, RFC 7009 revocation, and RFC 8707 resource checks. An OAuth token is an ordinary reedright token bound to one user and one org, listed on the Tokens page as `<client> (OAuth)` and revocable there.

@@ -91,9 +91,16 @@ model ApiToken {
   lastUsedAt String? @map("last_used_at")
   revokedAt  String? @map("revoked_at")
   createdAt  String  @map("created_at")
+  // OAuth-issued tokens: kind = oauth, bound to a client, expiring, with a rotating refresh token.
+  kind             String  @default("pat") // pat | oauth
+  clientId         String? @map("client_id")
+  expiresAt        String? @map("expires_at")
+  refreshTokenHash String? @unique @map("refresh_token_hash")
+  refreshExpiresAt String? @map("refresh_expires_at")
 
-  user User @relation(fields: [userId], references: [id])
-  org  Org  @relation(fields: [orgId], references: [id])
+  user   User         @relation(fields: [userId], references: [id])
+  org    Org          @relation(fields: [orgId], references: [id])
+  client OAuthClient? @relation(fields: [clientId], references: [id])
 
   @@map("api_tokens")
 }
@@ -158,4 +165,44 @@ model UsageLog {
 
   @@index([orgId, path])
   @@map("usage_logs")
+}
+
+// ---- OAuth 2.1 (for MCP clients such as claude.ai connectors) ----
+
+// A registered OAuth client. DCR clients get a random id; CIMD clients are keyed by their metadata URL.
+model OAuthClient {
+  id                      String  @id
+  source                  String // dcr | cimd
+  name                    String
+  redirectUris            String  @map("redirect_uris") // JSON string[]
+  tokenEndpointAuthMethod String  @default("none") @map("token_endpoint_auth_method")
+  secretHash              String? @map("secret_hash")
+  metadata                String // JSON as registered or fetched
+  fetchedAt               String? @map("fetched_at")
+  createdAt               String  @map("created_at")
+
+  codes  OAuthCode[]
+  tokens ApiToken[]
+
+  @@map("oauth_clients")
+}
+
+// One-time authorization code (stored hashed). Binds a client + user + org + PKCE challenge.
+model OAuthCode {
+  codeHash            String  @id @map("code_hash")
+  clientId            String  @map("client_id")
+  userId              String  @map("user_id")
+  orgId               String  @map("org_id")
+  redirectUri         String  @map("redirect_uri")
+  codeChallenge       String  @map("code_challenge")
+  codeChallengeMethod String  @default("S256") @map("code_challenge_method")
+  scope               String?
+  resource            String?
+  expiresAt           String  @map("expires_at")
+  usedAt              String? @map("used_at")
+  createdAt           String  @map("created_at")
+
+  client OAuthClient @relation(fields: [clientId], references: [id])
+
+  @@map("oauth_codes")
 }

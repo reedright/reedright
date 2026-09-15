@@ -18,4 +18,10 @@ export default [
   ]),
   route("github/setup", "routes/github.setup.ts"),
   route("mcp", "routes/mcp.ts"),
+  route(".well-known/oauth-authorization-server/*", "routes/oauth.as-metadata.ts"),
+  route(".well-known/oauth-protected-resource/*", "routes/oauth.prm.ts"),
+  route("oauth/register", "routes/oauth.register.ts"),
+  route("oauth/token", "routes/oauth.token.ts"),
+  route("oauth/revoke", "routes/oauth.revoke.ts"),
+  route("oauth/authorize", "routes/oauth.authorize.tsx"),
 ] satisfies RouteConfig;

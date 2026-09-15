@@ -20,6 +20,7 @@ export async function resolveToken(plaintext: string) {
     include: { user: true, org: true },
   });
   if (!token || token.revokedAt) return null;
+  if (token.expiresAt && token.expiresAt < now()) return null;
   const membership = await prisma().membership.findUnique({
     where: { userId_orgId: { userId: token.userId, orgId: token.orgId } },
   });

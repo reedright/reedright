@@ -28,7 +28,8 @@ export async function getUser(request: Request) {
 export async function requireUser(request: Request) {
   const user = await getUser(request);
   if (!user) {
-    const next = new URL(request.url).pathname;
+    const u = new URL(request.url);
+    const next = u.pathname + u.search;
     throw redirect(`/login?next=${encodeURIComponent(next)}`);
   }
   return user;
