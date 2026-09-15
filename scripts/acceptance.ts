@@ -16,10 +16,11 @@ const TOKEN_A = process.env.TOKEN_A ?? "";
 const TOKEN_B = process.env.TOKEN_B ?? "";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "";
-if (!TOKEN_A || !TOKEN_B || !ADMIN_EMAIL || !ADMIN_PASSWORD) {
-  console.error("Set APP_URL, ORG_SLUG, TOKEN_A, TOKEN_B, ADMIN_EMAIL, ADMIN_PASSWORD.");
+if (!TOKEN_A || !TOKEN_B) {
+  console.error("Set APP_URL, ORG_SLUG, TOKEN_A, TOKEN_B. Set ADMIN_EMAIL and ADMIN_PASSWORD to approve automatically; omit them to approve by hand in the UI.");
   process.exit(2);
 }
+const HUMAN_APPROVAL = !(ADMIN_EMAIL && ADMIN_PASSWORD);
 
 const ts = Date.now().toString(36);
 const today = new Date().toISOString().slice(0, 10);
@@ -135,9 +136,21 @@ async function main() {
   const notYet = await tool<{ files: Array<{ found: boolean }> }>(TOKEN_A, "brain_read", { paths: [rulePath] });
   check("rule is not on main before approval", notYet.files[0]?.found === false);
 
-  // 4. Admin approves in the reedright UI (HTTP)
-  const ap = await adminApprove(ruleId!);
-  check("admin approval accepted", ap.ok, ap.snippet || `http ${ap.status}`);
+  // 4. An owner approves in the reedright UI: automatically over HTTP, or a person while we poll
+  if (HUMAN_APPROVAL) {
+    console.log(`\n>>> Waiting for a marketing owner to approve request ${ruleId} at ${APP_URL}/orgs/${ORG_SLUG}/approvals (up to 15 minutes)…`);
+    const deadline = Date.now() + 15 * 60_000;
+    let st = "open";
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 5000));
+      st = (await tool<{ status: string }>(TOKEN_B, "brain_status", { request_id: ruleId })).status;
+      if (st !== "open") break;
+    }
+    check("a person approved in the UI", st === "merged", st);
+  } else {
+    const ap = await adminApprove(ruleId!);
+    check("admin approval accepted", ap.ok, ap.snippet || `http ${ap.status}`);
+  }
   const ruleStatus2 = await tool<{ status: string; approvals: Array<{ decision: string; by: string; ref: string }> }>(TOKEN_B, "brain_status", { request_id: ruleId });
   check("rule merged after approval", ruleStatus2.status === "merged", ruleStatus2.status);
   check("approval recorded by admin handle", ruleStatus2.approvals?.[0]?.by === whoA.handle && ruleStatus2.approvals[0].decision === "approve");

@@ -25,6 +25,10 @@ export interface PRInfo {
   title: string;
 }
 
+function warn(op: string, e: unknown) {
+  console.warn(`[reedright] github ${op} skipped: ${(e as { status?: number }).status ?? ""} ${(e as Error).message ?? e}`);
+}
+
 export class BrainRepo {
   constructor(
     private okt: Octokit,
@@ -137,23 +141,38 @@ export class BrainRepo {
     return { number: data.number, htmlUrl: data.html_url, state: data.state, merged: Boolean(data.merged_at), headRef: data.head.ref, headSha: data.head.sha, title: data.title };
   }
 
+  /** Best-effort: labels are cosmetic and need the Issues permission, which an installation may lack. */
   async ensureLabels(labels: Array<{ name: string; color: string; description: string }>): Promise<void> {
     for (const l of labels) {
       try {
         await this.okt.request("GET /repos/{owner}/{repo}/labels/{name}", { ...this.base, name: l.name });
       } catch (e) {
-        if (!isNotFound(e)) throw e;
-        await this.okt.request("POST /repos/{owner}/{repo}/labels", { ...this.base, ...l });
+        if (!isNotFound(e)) return warn("ensureLabels", e);
+        try {
+          await this.okt.request("POST /repos/{owner}/{repo}/labels", { ...this.base, ...l });
+        } catch (e2) {
+          return warn("ensureLabels", e2);
+        }
       }
     }
   }
 
+  /** Best-effort, see ensureLabels. */
   async addLabels(number: number, labels: string[]): Promise<void> {
-    await this.okt.request("POST /repos/{owner}/{repo}/issues/{issue_number}/labels", { ...this.base, issue_number: number, labels });
+    try {
+      await this.okt.request("POST /repos/{owner}/{repo}/issues/{issue_number}/labels", { ...this.base, issue_number: number, labels });
+    } catch (e) {
+      warn("addLabels", e);
+    }
   }
 
+  /** Best-effort: a rejection is recorded in reedright and the PR is closed either way. */
   async comment(number: number, body: string): Promise<void> {
-    await this.okt.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { ...this.base, issue_number: number, body });
+    try {
+      await this.okt.request("POST /repos/{owner}/{repo}/issues/{issue_number}/comments", { ...this.base, issue_number: number, body });
+    } catch (e) {
+      warn("comment", e);
+    }
   }
 
   /**

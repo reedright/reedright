@@ -16,7 +16,8 @@
     "db:generate": "prisma generate",
     "postinstall": "prisma generate",
     "seed": "tsx scripts/seed.ts",
-    "acceptance": "tsx scripts/acceptance.ts"
+    "acceptance": "tsx scripts/acceptance.ts",
+    "github:check": "tsx scripts/github-check.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
