@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { useNavigation } from "react-router";
 
 export function Page({ title, children, aside }: { title: ReactNode; children: ReactNode; aside?: ReactNode }) {
   return (
@@ -82,4 +83,16 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
 
 export function Empty({ children }: { children: ReactNode }) {
   return <p className="text-sm text-stone-500">{children}</p>;
+}
+
+/** A submit button that shows progress while its form action runs. `match` scopes it to one form on a page with many. */
+export function SubmitButton({ pendingText = "Working…", match, children, ...props }: ComponentProps<typeof Button> & { pendingText?: string; match?: Record<string, string> }) {
+  const nav = useNavigation();
+  const fd = nav.formData;
+  const pending = nav.state !== "idle" && Boolean(fd) && (!match || Object.entries(match).every(([k, v]) => fd!.get(k) === v));
+  return (
+    <Button {...props} type="submit" disabled={pending || props.disabled} aria-busy={pending}>
+      {pending ? pendingText : children}
+    </Button>
+  );
 }

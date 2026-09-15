@@ -7,7 +7,7 @@ import { OWNERS_PATH } from "~/lib/brain/paths";
 import { BrainRepo } from "~/lib/github/repo.server";
 import { requireMember } from "~/lib/session.server";
 import { str } from "~/lib/validate";
-import { Alert, Badge, Button, Card, Empty, Input, Page } from "~/components/ui";
+import { Alert, Badge, Card, Empty, Input, Page, SubmitButton } from "~/components/ui";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { org, membership } = await requireMember(request, params.slug);
@@ -108,8 +108,8 @@ export default function Approvals({ loaderData, actionData }: Route.ComponentPro
                     <input type="hidden" name="requestId" value={wr.id} />
                     <Input name="note" placeholder="note (optional)" className="w-56" />
                     <div className="flex gap-2">
-                      <Button type="submit" name="intent" value="reject" variant="secondary">Reject</Button>
-                      <Button type="submit" name="intent" value="approve" disabled={!wr.canApprove} title={wr.canApprove ? "" : "You are not an owner of this domain"}>Approve and merge</Button>
+                      <SubmitButton name="intent" value="reject" variant="secondary" match={{ requestId: wr.id, intent: "reject" }} pendingText="Rejecting…">Reject</SubmitButton>
+                      <SubmitButton name="intent" value="approve" match={{ requestId: wr.id, intent: "approve" }} pendingText="Approving and merging…" disabled={!wr.canApprove} title={wr.canApprove ? "" : "You are not an owner of this domain"}>Approve and merge</SubmitButton>
                     </div>
                   </Form>
                 </div>

@@ -5,7 +5,7 @@ import { prisma, now } from "~/lib/db.server";
 import { env } from "~/lib/env.server";
 import { requireAdmin, requireMember } from "~/lib/session.server";
 import { HANDLE_RE, str } from "~/lib/validate";
-import { Alert, Badge, Button, Card, Code, Empty, Input, Label, Page, Select } from "~/components/ui";
+import { Alert, Badge, Button, Card, Code, Empty, Input, Label, Page, Select, SubmitButton } from "~/components/ui";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { org, membership } = await requireMember(request, params.slug);
@@ -93,7 +93,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
               <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" required /></div>
               <div><Label htmlFor="handle">Handle</Label><Input id="handle" name="handle" required placeholder="growth-lead" pattern="[a-z0-9][a-z0-9-]{0,38}" /></div>
               <div><Label htmlFor="role">Role</Label><Select id="role" name="role" defaultValue="member"><option value="member">member</option><option value="admin">admin</option></Select></div>
-              <div className="flex items-end"><Button type="submit">Create invite link</Button></div>
+              <div className="flex items-end"><SubmitButton match={{ intent: "invite" }} pendingText="Creating…">Create invite link</SubmitButton></div>
             </Form>
             <p className="mt-2 text-xs text-stone-500">No email is sent. You get a link to share. Links expire in 7 days.</p>
           </Card>

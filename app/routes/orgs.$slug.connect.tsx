@@ -9,7 +9,7 @@ import { scaffoldRepo } from "~/lib/brain/scaffold.server";
 import { requireAdmin } from "~/lib/session.server";
 import { sign } from "~/lib/signing.server";
 import { str } from "~/lib/validate";
-import { Alert, Button, Card, Empty, Page, Select } from "~/components/ui";
+import { Alert, Button, Card, Empty, Page, Select, SubmitButton } from "~/components/ui";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { org } = await requireAdmin(request, params.slug);
@@ -102,7 +102,7 @@ export default function Connect({ loaderData, actionData }: Route.ComponentProps
             <p className="mb-3 text-sm text-stone-600 dark:text-stone-400">
               Create an empty repository for the brain first (for example <code>liveitup-agent-brain</code>), then install the app on it. GitHub sends you back here.
             </p>
-            <Form method="post"><input type="hidden" name="intent" value="install" /><Button type="submit">Install on GitHub</Button></Form>
+            <Form method="post"><input type="hidden" name="intent" value="install" /><SubmitButton pendingText="Redirecting to GitHub…">Install on GitHub</SubmitButton></Form>
             {installations.length > 0 && (
               <Form method="post" className="mt-4 flex items-end gap-3">
                 <input type="hidden" name="intent" value="use-installation" />
@@ -131,7 +131,7 @@ export default function Connect({ loaderData, actionData }: Route.ComponentProps
                   {repos.map((r) => <option key={r.fullName} value={r.fullName}>{r.fullName}{r.private ? " (private)" : ""}</option>)}
                 </Select>
               </div>
-              <Button type="submit" variant="secondary">Use this repo</Button>
+              <SubmitButton variant="secondary" pendingText="Saving…">Use this repo</SubmitButton>
             </Form>
           )}
           {org.repoName && <p className="mt-3 text-sm">Current: <a className="font-mono underline" href={`https://github.com/${org.repoOwner}/${org.repoName}`} target="_blank" rel="noreferrer">{org.repoOwner}/{org.repoName}</a> (default branch <code>{org.defaultBranch}</code>)</p>}
@@ -146,7 +146,7 @@ export default function Connect({ loaderData, actionData }: Route.ComponentProps
           ) : (
             <>
               <p className="mb-3 text-sm text-stone-600 dark:text-stone-400">Writes SCHEMA.md, OWNERS.yaml (you own every domain), an empty MANIFEST.md, and the directory layout. One commit on <code>{org.defaultBranch}</code>.</p>
-              <Form method="post"><input type="hidden" name="intent" value="scaffold" /><Button type="submit">Scaffold</Button></Form>
+              <Form method="post"><input type="hidden" name="intent" value="scaffold" /><SubmitButton pendingText="Scaffolding… (one commit to GitHub, a few seconds)">Scaffold</SubmitButton></Form>
             </>
           )}
         </Card>

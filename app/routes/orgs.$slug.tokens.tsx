@@ -6,7 +6,7 @@ import { requireMember } from "~/lib/session.server";
 import { mintToken } from "~/lib/tokens.server";
 import { claudeMcpAddCommand, contextSnippet, mcpConfigJson } from "~/lib/snippets";
 import { str } from "~/lib/validate";
-import { Alert, Badge, Button, Card, Code, Empty, Input, Label, Page } from "~/components/ui";
+import { Alert, Badge, Button, Card, Code, Empty, Input, Label, Page, SubmitButton } from "~/components/ui";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { org, user, membership } = await requireMember(request, params.slug);
@@ -61,7 +61,7 @@ export default function Tokens({ loaderData, actionData }: Route.ComponentProps)
         <Form method="post" className="flex items-end gap-3">
           <input type="hidden" name="intent" value="mint" />
           <div className="grow"><Label htmlFor="name">Name</Label><Input id="name" name="name" placeholder="laptop, claudata, ci" /></div>
-          <Button type="submit">Mint</Button>
+          <SubmitButton match={{ intent: "mint" }} pendingText="Minting…">Mint</SubmitButton>
         </Form>
       </Card>
       <Card className="mt-4">
