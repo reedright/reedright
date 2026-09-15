@@ -9,7 +9,9 @@ import { prisma, now } from "./db.server";
 import { env } from "./env.server";
 import { hashToken, mintToken } from "./tokens.server";
 
-export const SCOPES = ["brain"]; // access is scoped by (user, org); the scope string is informational
+export const SCOPES = ["brain"];
+const AUTH_METHODS = ["none", "client_secret_post", "client_secret_basic"];
+const GRANT_TYPES = ["authorization_code", "refresh_token"]; // access is scoped by (user, org); the scope string is informational
 const CODE_TTL_MS = 10 * 60_000;
 const ACCESS_TTL_S = 7 * 24 * 3600;
 const REFRESH_TTL_MS = 90 * 24 * 3600_000;
@@ -43,8 +45,8 @@ export function authorizationServerMetadata() {
     response_modes_supported: ["query"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     code_challenge_methods_supported: ["S256"],
-    token_endpoint_auth_methods_supported: ["none", "client_secret_post"],
-    revocation_endpoint_auth_methods_supported: ["none", "client_secret_post"],
+    token_endpoint_auth_methods_supported: AUTH_METHODS,
+    revocation_endpoint_auth_methods_supported: AUTH_METHODS,
     scopes_supported: SCOPES,
     client_id_metadata_document_supported: true,
     service_documentation: `${i}/`,
@@ -80,10 +82,13 @@ function normalizeMetadata(raw: unknown) {
   const m = parsed.data;
   if (!m.redirect_uris.length || !m.redirect_uris.every(isAllowedRedirect)) throw new OAuthError("invalid_redirect_uri", "redirect_uris must be https URLs (http is allowed for localhost only)");
   const method = m.token_endpoint_auth_method ?? "none";
-  if (!["none", "client_secret_post"].includes(method)) throw new OAuthError("invalid_client_metadata", "token_endpoint_auth_method must be none or client_secret_post");
-  const grants = m.grant_types?.length ? m.grant_types : ["authorization_code"];
-  if (grants.some((g) => !["authorization_code", "refresh_token"].includes(g))) throw new OAuthError("invalid_client_metadata", "grant_types may only include authorization_code and refresh_token");
-  if ((m.response_types ?? ["code"]).some((r) => r !== "code")) throw new OAuthError("invalid_client_metadata", "response_types may only include code");
+  if (!AUTH_METHODS.includes(method)) throw new OAuthError("invalid_client_metadata", `token_endpoint_auth_method must be one of ${AUTH_METHODS.join(", ")}`);
+  // A client may declare more grant and response types than this server offers (RFC 7591 lets the server
+  // narrow them). Only the ones we issue have to be there; the rest are ignored.
+  const declaredGrants = m.grant_types?.length ? m.grant_types : ["authorization_code"];
+  if (!declaredGrants.includes("authorization_code")) throw new OAuthError("invalid_client_metadata", "grant_types must include authorization_code");
+  const grants = GRANT_TYPES.filter((g) => declaredGrants.includes(g));
+  if (!(m.response_types ?? ["code"]).includes("code")) throw new OAuthError("invalid_client_metadata", "response_types must include code");
   return { m, method, grants };
 }
 
@@ -91,7 +96,7 @@ function normalizeMetadata(raw: unknown) {
 export async function registerClient(raw: unknown) {
   const { m, method, grants } = normalizeMetadata(raw);
   const id = `rrc_${randomBytes(16).toString("base64url")}`;
-  const secret = method === "client_secret_post" ? randomBytes(32).toString("base64url") : null;
+  const secret = method === "none" ? null : randomBytes(32).toString("base64url");
   await prisma().oAuthClient.create({
     data: { id, source: "dcr", name: m.client_name ?? "unnamed client", redirectUris: JSON.stringify(m.redirect_uris), tokenEndpointAuthMethod: method, secretHash: secret ? hashToken(secret) : null, metadata: JSON.stringify(raw), createdAt: now() },
   });
@@ -219,12 +224,19 @@ export async function issueCode(input: { client: OAuthClient; userId: string; or
   return code;
 }
 
-async function authenticateClient(form: URLSearchParams): Promise<OAuthClient> {
-  const clientId = form.get("client_id");
+async function authenticateClient(form: URLSearchParams, authorization?: string | null): Promise<OAuthClient> {
+  let clientId = form.get("client_id");
+  let basicSecret: string | null = null;
+  const basic = /^Basic\s+(.+)$/i.exec(authorization ?? "");
+  if (basic) {
+    const [id, ...rest] = Buffer.from(basic[1], "base64").toString("utf8").split(":");
+    clientId = clientId ?? decodeURIComponent(id);
+    basicSecret = decodeURIComponent(rest.join(":"));
+  }
   if (!clientId) throw new OAuthError("invalid_client", "client_id is required", 401);
   const client = await resolveClient(clientId);
-  if (client.tokenEndpointAuthMethod === "client_secret_post") {
-    const secret = form.get("client_secret") ?? "";
+  if (client.tokenEndpointAuthMethod === "client_secret_post" || client.tokenEndpointAuthMethod === "client_secret_basic") {
+    const secret = (client.tokenEndpointAuthMethod === "client_secret_basic" ? basicSecret : form.get("client_secret")) ?? "";
     const given = Buffer.from(hashToken(secret));
     const expected = Buffer.from(client.secretHash ?? "");
     if (!secret || given.length !== expected.length || !timingSafeEqual(given, expected)) throw new OAuthError("invalid_client", "client authentication failed", 401);
@@ -253,10 +265,10 @@ async function issueTokens(input: { userId: string; orgId: string; client: OAuth
   return { access_token: access.plaintext, token_type: "Bearer", expires_in: ACCESS_TTL_S, refresh_token: refresh, ...(input.scope ? { scope: input.scope } : {}) };
 }
 
-export async function tokenEndpoint(form: URLSearchParams): Promise<TokenResponse> {
+export async function tokenEndpoint(form: URLSearchParams, authorization?: string | null): Promise<TokenResponse> {
   const grant = form.get("grant_type");
   if (grant === "authorization_code") {
-    const client = await authenticateClient(form);
+    const client = await authenticateClient(form, authorization);
     const code = form.get("code");
     const verifier = form.get("code_verifier");
     if (!code || !verifier) throw new OAuthError("invalid_request", "code and code_verifier are required");
@@ -279,7 +291,7 @@ export async function tokenEndpoint(form: URLSearchParams): Promise<TokenRespons
     return issueTokens({ userId: row.userId, orgId: row.orgId, client, scope: row.scope });
   }
   if (grant === "refresh_token") {
-    const client = await authenticateClient(form);
+    const client = await authenticateClient(form, authorization);
     const refresh = form.get("refresh_token");
     if (!refresh) throw new OAuthError("invalid_request", "refresh_token is required");
     const row = await prisma().apiToken.findUnique({ where: { refreshTokenHash: hashToken(refresh) } });
@@ -294,8 +306,8 @@ export async function tokenEndpoint(form: URLSearchParams): Promise<TokenRespons
 }
 
 /** RFC 7009. Accepts an access token or a refresh token; always 200 for unknown tokens. */
-export async function revokeEndpoint(form: URLSearchParams): Promise<void> {
-  const client = await authenticateClient(form);
+export async function revokeEndpoint(form: URLSearchParams, authorization?: string | null): Promise<void> {
+  const client = await authenticateClient(form, authorization);
   const token = form.get("token");
   if (!token) return;
   const h = hashToken(token);
