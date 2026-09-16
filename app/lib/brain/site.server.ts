@@ -26,7 +26,8 @@ export async function publishSite(org: Org): Promise<PublishResult> {
   try {
     siteUrl = await repo.enablePagesViaActions();
   } catch (e) {
-    warnings.push(`GitHub Pages could not be enabled automatically (${(e as Error).message}). Enable it once by hand at ${repo.htmlUrl}/settings/pages with Source set to "GitHub Actions"; the workflow then deploys on its next run.`);
+    // Creating a Pages site needs repository admin rights, which the app's Pages permission does not confer.
+    warnings.push(`GitHub only lets a repository admin turn on Pages (${status(e) === 403 ? "the app is not allowed to" : (e as Error).message}). Do it once by hand at ${repo.htmlUrl}/settings/pages: set Source to "GitHub Actions". The workflow is in place and deploys on its next run; click Publish again afterwards to record the site URL.`);
   }
   if (writes.length) {
     try {
