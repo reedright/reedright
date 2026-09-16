@@ -33,6 +33,7 @@
     "express": "^4.22.3",
     "isbot": "5.2.2",
     "octokit": "5.0.5",
+    "posthog-js": "^1.433.6",
     "prisma": "7.10.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",

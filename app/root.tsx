@@ -1,10 +1,19 @@
+import { useEffect, useRef } from "react";
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
+import { usePostHog } from "posthog-js/react";
 import type { Route } from "./+types/root";
 import "@fontsource-variable/source-sans-3";
 import "./app.css";
+import { getUser } from "./lib/session.server";
 
 export function meta() {
   return [{ title: "reedright" }];
+}
+
+/** Who is logged in, for analytics identity. Runs on every document request; no cookie means no database call. */
+export async function loader({ request }: Route.LoaderArgs) {
+  const user = await getUser(request);
+  return { user: user ? { id: user.id, email: user.email, name: user.name } : null };
 }
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -27,11 +36,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function App() {
+export default function App({ loaderData }: Route.ComponentProps) {
+  const posthog = usePostHog();
+  const user = loaderData.user;
+  const identified = useRef<string | null>(null);
+  useEffect(() => {
+    if (!posthog?.__loaded) return;
+    if (user && identified.current !== user.id) {
+      posthog.identify(user.id, { email: user.email, name: user.name });
+      identified.current = user.id;
+    } else if (!user && identified.current) {
+      posthog.reset();
+      identified.current = null;
+    }
+  }, [posthog, user]);
   return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  const posthog = usePostHog();
+  useEffect(() => {
+    if (posthog?.__loaded && error instanceof Error) posthog.captureException(error);
+  }, [posthog, error]);
   let message = "Something went wrong";
   let details = "";
   if (isRouteErrorResponse(error)) {

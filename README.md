@@ -65,6 +65,10 @@ GITHUB_APP_PRIVATE_KEY_B64=…
 
 `/healthz` returns `{"ok":true}` when the database is reachable.
 
+## Analytics (PostHog)
+
+Optional. Set `VITE_POSTHOG_PROJECT_TOKEN` (and `VITE_POSTHOG_HOST`, default `https://us.i.posthog.com`) where the app is **built**; Vite bakes them into the client bundle, so on Railway they are service variables. Without a token nothing loads. With one, `app/entry.client.tsx` initializes posthog-js with the `2025-05-24` defaults (pageviews on navigation, autocapture, identified-only person profiles), `root.tsx` identifies logged-in users by id with email and name and resets on logout, and the error boundary reports exceptions. The MCP endpoint and OAuth routes send nothing. Leave the token out of your local `.env` unless you want dev traffic in the project.
+
 ## Connect an organization
 
 1. Sign up, create an org, pick your handle (for example `cam`). You are the admin and, after scaffolding, the owner of every domain.
