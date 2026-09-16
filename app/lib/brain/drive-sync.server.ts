@@ -5,7 +5,7 @@ import { prisma, now } from "../db.server";
 import { env } from "../env.server";
 import { BrainRepo, REEDRIGHT_LABELS } from "../github/repo.server";
 import { FOLDER_MIME, downloadText, exportText, getFile, walkFolder, type WalkedFile } from "../google/drive.server";
-import { MAX_DEPTH, MAX_FILES_PER_RUN, exportMimeFor, modeFor, prBody, prTitle, refPathFor, renderRef, statsOf, type SyncEntry, type SyncStats } from "./drive-sync";
+import { MAX_DEPTH, MAX_FILES_PER_RUN, RENDER_VERSION, exportMimeFor, modeFor, prBody, prTitle, refPathFor, renderRef, statsOf, type SyncEntry, type SyncStats } from "./drive-sync";
 import { splitFrontmatter } from "./frontmatter";
 import { lint } from "./lint";
 import { parseOwners, resolveApprovers } from "./owners";
@@ -71,6 +71,10 @@ async function run(sync: SyncWithItems, input: { org: Org; user: User; membershi
   const syncedAt = now();
   const runId = `drive-sync-${sync.id.slice(-6)}-${syncedAt}`;
   const itemsById = new Map(sync.items.map((i) => [i.fileId, i]));
+  // A previous run whose PR is still open gets superseded by this one, so nothing it proposed may count as unchanged.
+  const requestIds = [...new Set(sync.items.map((i) => i.requestId).filter((x): x is string => Boolean(x)))];
+  const openRequests = requestIds.length ? await prisma().writeRequest.findMany({ where: { id: { in: requestIds }, orgId: org.id, kind: "sync", status: "open" } }) : [];
+  const pending = new Set(openRequests.map((r) => r.id));
   const existingPaths = new Set(await repo.listPaths());
   const entries: SyncEntry[] = [];
   const writes: Array<{ path: string; content: string }> = [];
@@ -83,7 +87,9 @@ async function run(sync: SyncWithItems, input: { org: Org; user: User; membershi
     const path = item?.path ?? refPathFor(sync.domain, file);
     const mode = modeFor(file.mimeType, file.size);
     const base = { fileId: file.id, name: file.name, drivePath: file.drivePath, webViewLink: file.webViewLink, path, mode };
-    const unchanged = item && !item.archivedAt && item.modifiedTime === file.modifiedTime && (file.md5Checksum == null || item.checksum === file.md5Checksum) && existingPaths.has(path);
+    const unchanged =
+      item && !item.archivedAt && item.renderVersion === RENDER_VERSION && !(item.requestId && pending.has(item.requestId)) &&
+      item.modifiedTime === file.modifiedTime && (file.md5Checksum == null || item.checksum === file.md5Checksum) && existingPaths.has(path);
     if (unchanged) {
       entries.push({ ...base, action: "unchanged" });
       continue;
@@ -116,7 +122,9 @@ async function run(sync: SyncWithItems, input: { org: Org; user: User; membershi
   }
 
   for (const item of sync.items) {
-    if (seen.has(item.fileId) || item.archivedAt || !existingPaths.has(item.path)) continue;
+    // An archive proposed by a superseded (still open) PR never reached main, so it is proposed again here.
+    const archivedOnMain = item.archivedAt && !(item.requestId && pending.has(item.requestId));
+    if (seen.has(item.fileId) || archivedOnMain || !existingPaths.has(item.path)) continue;
     const prev = await repo.readFile(item.path);
     if (!prev) continue;
     writes.push({ path: archivePath(item.path), content: prev.content });
@@ -144,6 +152,19 @@ async function run(sync: SyncWithItems, input: { org: Org; user: User; membershi
   });
   await repo.addLabels(pr.number, ["reedright", "type:ref", "drive-sync"]);
 
+  const superseded: number[] = [];
+  for (const old of openRequests) {
+    try {
+      await repo.comment(old.prNumber, `Superseded by ${pr.htmlUrl} (a newer run of this Drive sync). Closed by reedright.`);
+      await repo.closePR(old.prNumber);
+      await repo.deleteBranch(old.branch);
+      await prisma().writeRequest.update({ where: { id: old.id }, data: { status: "closed", updatedAt: now() } });
+      superseded.push(old.prNumber);
+    } catch (e) {
+      console.warn(`[reedright] could not close superseded sync PR #${old.prNumber}: ${(e as Error).message}`);
+    }
+  }
+
   const refPaths = writes.map((w) => w.path).filter((p) => !p.startsWith("archive/"));
   const ts = now();
   await prisma().writeRequest.create({
@@ -158,7 +179,7 @@ async function run(sync: SyncWithItems, input: { org: Org; user: User; membershi
     const key = { syncId_fileId: { syncId: sync.id, fileId: e.fileId } };
     if (e.action === "added" || e.action === "updated") {
       const f = files.find((x) => x.id === e.fileId)!;
-      const data = { path: e.path, modifiedTime: f.modifiedTime, checksum: f.md5Checksum, requestId, archivedAt: null, updatedAt: ts };
+      const data = { path: e.path, modifiedTime: f.modifiedTime, checksum: f.md5Checksum, requestId, renderVersion: RENDER_VERSION, archivedAt: null, updatedAt: ts };
       await prisma().driveSyncItem.upsert({ where: key, create: { syncId: sync.id, fileId: e.fileId, ...data }, update: data });
     } else if (e.action === "archived") {
       await prisma().driveSyncItem.update({ where: key, data: { archivedAt: ts, requestId, updatedAt: ts } });
@@ -166,6 +187,6 @@ async function run(sync: SyncWithItems, input: { org: Org; user: User; membershi
   }
   return {
     changed: true, rootName: root.name, requestId, prUrl: pr.htmlUrl, stats, entries, truncated,
-    message: `Opened ${pr.htmlUrl}: ${stats.added} added, ${stats.updated} updated, ${stats.archived} archived${stats.skipped ? `, ${stats.skipped} skipped` : ""}. It needs approval from an owner of ${sync.domain}: ${approvers.join(", ") || "nobody listed in OWNERS.yaml"}.`,
+    message: `Opened ${pr.htmlUrl}: ${stats.added} added, ${stats.updated} updated, ${stats.archived} archived${stats.skipped ? `, ${stats.skipped} skipped` : ""}.${superseded.length ? ` Closed the earlier open sync PR ${superseded.map((n) => `#${n}`).join(", ")} as superseded.` : ""} It needs approval from an owner of ${sync.domain}: ${approvers.join(", ") || "nobody listed in OWNERS.yaml"}.`,
   };
 }

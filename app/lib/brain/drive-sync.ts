@@ -11,6 +11,8 @@ export const MAX_CHARS = 200_000;
 export const MAX_FILES_PER_RUN = 300;
 export const MAX_DEPTH = 10;
 export const REF_REVIEW_DAYS = 180;
+/** Bump when renderRef's output changes so already-synced documents are re-rendered on the next run. */
+export const RENDER_VERSION = 2;
 
 const TEXT_MIMES = new Set(["application/json", "application/xml", "application/x-yaml", "application/yaml", "application/javascript", "application/x-sh", "application/sql"]);
 
@@ -51,6 +53,41 @@ export function slugifyName(name: string): string {
 /** Deterministic path per Drive file, so a re-sync updates in place. */
 export function refPathFor(domain: string, file: { id: string; name: string }): string {
   return `refs/${domain}/gdrive-${slugifyName(file.name)}-${file.id.slice(0, 8).toLowerCase().replace(/[^a-z0-9]/g, "x")}.md`;
+}
+
+const imageMarker = (alt: string) => (alt.trim() ? `[image omitted: ${alt.trim()}]` : "[image omitted]");
+
+/**
+ * Google Docs' Markdown export embeds every image as a base64 data URI: `![][image1]` in the text and a
+ * `[image1]: <data:image/png;base64,…>` definition at the end, often hundreds of KB per image. That is noise
+ * for an agent and blows past the size limit, so images are replaced with a short marker. Inline data-URI images,
+ * <img> tags with data sources, and any other long base64 data URI get the same treatment.
+ */
+export function stripEmbeddedImages(text: string): { text: string; omitted: number } {
+  let omitted = 0;
+  const labels = new Set<string>();
+  let out = text.replace(/^[ \t]*\[([^\]\n]+)\]:[ \t]*<?data:[^\s>]+>?[ \t]*(?:\n|$)/gm, (_m, label: string) => {
+    labels.add(label.toLowerCase());
+    return "";
+  });
+  out = out.replace(/!\[([^\]\n]*)\]\[([^\]\n]*)\]/g, (m, alt: string, label: string) => {
+    if (!labels.has((label || alt).toLowerCase())) return m;
+    omitted++;
+    return imageMarker(label ? alt : "");
+  });
+  out = out.replace(/!\[([^\]\n]*)\]\(\s*<?data:[^)\s]*>?(?:\s+"[^"]*")?\s*\)/g, (_m, alt: string) => {
+    omitted++;
+    return imageMarker(alt);
+  });
+  out = out.replace(/<img\b[^>]*\bsrc\s*=\s*["']data:[^"']*["'][^>]*>/gi, (m) => {
+    omitted++;
+    return imageMarker(/\balt\s*=\s*["']([^"']*)["']/i.exec(m)?.[1] ?? "");
+  });
+  out = out.replace(/data:[a-z]+\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]{64,}/g, () => {
+    omitted++;
+    return "[embedded data omitted]";
+  });
+  return { text: out.replace(/\n{3,}/g, "\n\n"), omitted };
 }
 
 export function truncate(text: string): { text: string; truncated: number } {
@@ -96,7 +133,9 @@ export function renderRef(input: RenderInput): string {
   ];
   let body: string;
   if (input.content != null) {
-    const t = truncate(input.content.replace(/\r\n/g, "\n").trim());
+    const stripped = stripEmbeddedImages(input.content.replace(/\r\n/g, "\n"));
+    if (stripped.omitted) meta.push(`- Images: ${stripped.omitted} embedded image${stripped.omitted === 1 ? "" : "s"} omitted (open the Drive file to see them)`);
+    const t = truncate(stripped.text.trim());
     body = t.text || "(the file is empty)";
   } else {
     body = `Content not ingested${input.contentNote ? `: ${input.contentNote}` : ""}. Open the file in Drive.`;

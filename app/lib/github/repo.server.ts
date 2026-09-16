@@ -215,6 +215,33 @@ export class BrainRepo {
     await this.okt.request("PATCH /repos/{owner}/{repo}/pulls/{pull_number}", { ...this.base, pull_number: number, state: "closed" });
   }
 
+  /** The repository's GitHub Pages site, or null when Pages is off. Needs the Pages permission. */
+  async getPagesSite(): Promise<{ url: string; buildType: string } | null> {
+    try {
+      const { data } = await this.okt.request("GET /repos/{owner}/{repo}/pages", this.base);
+      return { url: data.html_url ?? `https://${this.owner}.github.io/${this.repo}/`, buildType: data.build_type ?? "legacy" };
+    } catch (e) {
+      if (isNotFound(e)) return null;
+      throw e;
+    }
+  }
+
+  /** Turn Pages on with the GitHub Actions build type, or switch an existing site to it. Returns the site URL. */
+  async enablePagesViaActions(): Promise<string> {
+    const existing = await this.getPagesSite();
+    if (!existing) {
+      const { data } = await this.okt.request("POST /repos/{owner}/{repo}/pages", { ...this.base, build_type: "workflow" });
+      return data.html_url ?? `https://${this.owner}.github.io/${this.repo}/`;
+    }
+    if (existing.buildType !== "workflow") await this.okt.request("PUT /repos/{owner}/{repo}/pages", { ...this.base, build_type: "workflow" });
+    return existing.url;
+  }
+
+  /** Run a workflow by file name on a branch (workflow_dispatch). Needs the Actions permission. */
+  async dispatchWorkflow(file: string, ref = this.defaultBranch): Promise<void> {
+    await this.okt.request("POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches", { ...this.base, workflow_id: file, ref });
+  }
+
   async listOpenPRs(): Promise<PRInfo[]> {
     const { data } = await this.okt.request("GET /repos/{owner}/{repo}/pulls", { ...this.base, state: "open", per_page: 100 });
     return data.map((d) => ({ number: d.number, htmlUrl: d.html_url, state: d.state as "open" | "closed", merged: Boolean(d.merged_at), headRef: d.head.ref, headSha: d.head.sha, title: d.title }));

@@ -43,7 +43,7 @@ pnpm seed                        # org "acmecorp", two users, two tokens, printe
 3. Identifying and authorizing users: leave the redirect URI empty; do not request user authorization during installation.
 4. Post installation: Setup URL `<APP_URL>/github/setup`, tick **Redirect on update**.
 5. Webhook: untick **Active**.
-6. Repository permissions: **Contents: read and write**, **Pull requests: read and write**, **Issues: read and write** (labels and PR comments), Metadata: read-only. No org or account permissions.
+6. Repository permissions: **Contents: read and write**, **Pull requests: read and write**, **Issues: read and write** (labels and PR comments), Metadata: read-only. To publish a site, also **Pages: read and write**, **Workflows: read and write**, and **Actions: read and write**. No org or account permissions.
 7. Where can it be installed: **Any account**.
 8. After creating: note the **App ID**, generate a **private key** (downloads a `.pem`).
 9. Env: `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY_B64` (`base64 -i key.pem | tr -d '\n'`).
@@ -97,6 +97,12 @@ TOKEN_A=rr_… TOKEN_B=rr_… ADMIN_EMAIL=… ADMIN_PASSWORD=… pnpm acceptance
 
 TOKEN_A belongs to the admin (whose handle owns `marketing`); TOKEN_B to any other member. The agents are `claude -p` runs; the assertions go through the MCP endpoint itself, so no GitHub token is needed.
 
+## Publish a browsable site (Quartz on GitHub Pages)
+
+Overview → **Publish with Quartz** (admins). reedright turns on GitHub Pages for the brain repository with the "GitHub Actions" build type and commits two files to it: `.github/workflows/reedright-site.yml` and `.github/reedright/site-prep.mjs`. On every push to the default branch (every merge, including the manifest regeneration) the workflow checks out the brain and a pinned [Quartz](https://quartz.jzhao.xyz) release, gives each entry a page title from its heading and tags for its type and domain, builds the home page from `MANIFEST.md` with every path linked, runs `quartz build` straight against the checkout, and deploys to `https://<owner>.github.io/<repo>/` (or the owner's custom Pages domain). **Rebuild now** triggers a build without a push; **Stop publishing** removes the two files.
+
+The site is a cache in the RFC's sense: it is rebuilt from the repository alone and nothing reads from it. Public repositories publish for free; private ones need GitHub Pro/Team. The GitHub App needs the Pages, Workflows, and Actions permissions for this (Contents alone cannot write under `.github/workflows/`); if Pages cannot be enabled automatically the page says so and points at the repository's Pages settings.
+
 ## Known gaps in v0
 
 - reedright is the lint gate. The RFC wants CI in the brain repo to enforce the schema too; a vendored lint script and workflow are phase 2. Until then, protect `main` so only the app can push.
@@ -117,4 +123,6 @@ One service account per deployment (`GOOGLE_SERVICE_ACCOUNT_JSON_B64`, a base64 
 
 Every document becomes a `ref` at `refs/<domain>/gdrive-<name>-<id>.md`: frontmatter with `system: gdrive`, `locator` = the Drive API URL, `source` = the Drive link, plus the content in plain text where Drive can export it (Docs as Markdown, Sheets as CSV of the first sheet, Slides as text, text files as-is; PDFs, images, and Office files as pointers). Long content is truncated at 200k characters. A run is one commit and one pull request whose body lists each document with its Drive link, location, mode, and path. Refs need a domain owner's approval, so the PR waits in the approvals queue; approving stamps every file in it.
 
-A re-sync rewrites only documents whose Drive `modifiedTime` or checksum changed, archives refs whose documents disappeared, and does nothing when everything is current. Synced refs are updated in place (git history keeps versions) rather than superseded, which is a deliberate departure from the RFC's supersede-and-archive rule for hand-written entries. Limits: 300 files per run, depth 10, 5 MB per text download.
+Images that Google Docs embeds in its Markdown export as base64 data URIs are dropped and replaced with `[image omitted]` markers, with a count in the ref's header; the Drive link has the originals.
+
+A re-sync rewrites only documents whose Drive `modifiedTime` or checksum changed (or that were rendered by an older version of the renderer), archives refs whose documents disappeared, and does nothing when everything is current. Running a sync again while its previous PR is still open closes that PR as superseded and opens a fresh one, so the queue never holds two PRs for the same documents. Synced refs are updated in place (git history keeps versions) rather than superseded, which is a deliberate departure from the RFC's supersede-and-archive rule for hand-written entries. Limits: 300 files per run, depth 10, 5 MB per text download.

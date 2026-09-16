@@ -35,6 +35,8 @@ model Org {
   repoName             String? @map("repo_name")
   defaultBranch        String  @default("main") @map("default_branch")
   similarityThreshold  Float   @default(0.9) @map("similarity_threshold")
+  siteUrl              String? @map("site_url")
+  sitePublishedAt      String? @map("site_published_at")
   createdAt            String  @map("created_at")
 
   memberships   Membership[]
@@ -243,9 +245,10 @@ model DriveSyncItem {
   path         String
   modifiedTime String  @map("modified_time")
   checksum     String?
-  requestId    String? @map("request_id")
-  archivedAt   String? @map("archived_at")
-  updatedAt    String  @map("updated_at")
+  requestId     String? @map("request_id")
+  renderVersion Int     @default(0) @map("render_version")
+  archivedAt    String? @map("archived_at")
+  updatedAt     String  @map("updated_at")
 
   sync DriveSync @relation(fields: [syncId], references: [id])
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MAX_CHARS, modeFor, prBody, prTitle, refPathFor, renderRef, slugifyName, statsOf, truncate } from "~/lib/brain/drive-sync";
+import { MAX_CHARS, modeFor, prBody, prTitle, refPathFor, renderRef, slugifyName, statsOf, stripEmbeddedImages, truncate } from "~/lib/brain/drive-sync";
 import { splitFrontmatter } from "~/lib/brain/frontmatter";
 import { lint } from "~/lib/brain/lint";
 import { TODAY, owners } from "./fixtures";
@@ -74,5 +74,35 @@ describe("drive sync: pull request text", () => {
     expect(body).not.toContain("logo.png");
     expect(body).toContain("per-run file limit");
     expect(body).toContain("`growth-lead`");
+  });
+});
+
+describe("drive sync: embedded images", () => {
+  const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==".repeat(3);
+  it("drops Google Docs reference-style data-URI images and their definitions", () => {
+    const doc = `# Plan\n\nIntro.\n\n![][image1]\n\nMore text.\n\n![Chart][image2]\n\n[image1]: <data:image/png;base64,${png}>\n\n[image2]: <data:image/jpeg;base64,${png}>\n`;
+    const r = stripEmbeddedImages(doc);
+    expect(r.omitted).toBe(2);
+    expect(r.text).not.toContain("base64");
+    expect(r.text).toContain("[image omitted]");
+    expect(r.text).toContain("[image omitted: Chart]");
+    expect(r.text).toContain("More text.");
+    expect(r.text).not.toMatch(/\n{3,}/);
+  });
+  it("drops inline data-URI images, img tags, and stray base64 blobs but keeps real links", () => {
+    const md = `![logo](data:image/png;base64,${png})\n<img alt="Screenshot" src="data:image/png;base64,${png}">\nSee data:image/png;base64,${png} end\n![kept](https://example.com/a.png)\n[ref]: https://example.com\n`;
+    const r = stripEmbeddedImages(md);
+    expect(r.omitted).toBe(3);
+    expect(r.text).toContain("[image omitted: logo]");
+    expect(r.text).toContain("[image omitted: Screenshot]");
+    expect(r.text).toContain("See [embedded data omitted] end");
+    expect(r.text).toContain("![kept](https://example.com/a.png)");
+    expect(r.text).toContain("[ref]: https://example.com");
+  });
+  it("renders a ref without the blobs and notes how many images were left out", () => {
+    const raw = renderRef({ file, domain: "marketing", handle: "cameron", run: "r", mode: "export-markdown", created: TODAY, syncedAt: "2026-09-15T00:00:00.000Z", content: `# Doc\n\n![][image1]\n\n[image1]: <data:image/png;base64,${png}>\n` });
+    expect(raw).not.toContain("base64");
+    expect(raw).toContain("- Images: 1 embedded image omitted");
+    expect(lint({ path: refPathFor("marketing", file), raw, owners, mode: "proposal", today: TODAY }).ok).toBe(true);
   });
 });
