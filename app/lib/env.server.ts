@@ -38,6 +38,9 @@ export const env = {
   get githubConfigured() {
     return Boolean(process.env.GITHUB_APP_ID && process.env.GITHUB_APP_SLUG && (process.env.GITHUB_APP_PRIVATE_KEY_B64 || process.env.GITHUB_APP_PRIVATE_KEY));
   },
+  get googleConfigured() {
+    return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON_B64);
+  },
   get isProduction() {
     return process.env.NODE_ENV === "production";
   },

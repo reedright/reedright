@@ -43,6 +43,7 @@ model Org {
   writeRequests WriteRequest[]
   approvals     Approval[]
   usageLogs     UsageLog[]
+  driveSyncs    DriveSync[]
 
   @@map("orgs")
 }
@@ -121,6 +122,9 @@ model WriteRequest {
   prUrl      String @map("pr_url")
   status     String @default("open") // open | merged | closed | rejected
   lintReport String @map("lint_report") // JSON LintReport
+  kind       String @default("entry") // entry | sync
+  paths      String? // JSON string[]: every entry file in the PR (sync requests)
+  summary    String? // JSON: sync statistics
   createdAt  String @map("created_at")
   updatedAt  String @map("updated_at")
 
@@ -205,4 +209,46 @@ model OAuthCode {
   client OAuthClient @relation(fields: [clientId], references: [id])
 
   @@map("oauth_codes")
+}
+
+// ---- Google Drive ingestion ----
+
+// A Drive file or folder a member chose to sync into refs/<domain>/. One service account per deployment.
+model DriveSync {
+  id            String  @id @default(cuid())
+  orgId         String  @map("org_id")
+  userId        String  @map("user_id")
+  handle        String
+  domain        String
+  driveId       String  @map("drive_id")
+  name          String
+  mimeType      String  @map("mime_type")
+  status        String  @default("idle") // idle | running | error
+  lastRunAt     String? @map("last_run_at")
+  lastError     String? @map("last_error")
+  lastRequestId String? @map("last_request_id")
+  createdAt     String  @map("created_at")
+
+  org   Org             @relation(fields: [orgId], references: [id])
+  items DriveSyncItem[]
+
+  @@unique([orgId, driveId])
+  @@map("drive_syncs")
+}
+
+// Per-file state so a re-sync only rewrites what changed and archives what disappeared.
+model DriveSyncItem {
+  syncId       String  @map("sync_id")
+  fileId       String  @map("file_id")
+  path         String
+  modifiedTime String  @map("modified_time")
+  checksum     String?
+  requestId    String? @map("request_id")
+  archivedAt   String? @map("archived_at")
+  updatedAt    String  @map("updated_at")
+
+  sync DriveSync @relation(fields: [syncId], references: [id])
+
+  @@id([syncId, fileId])
+  @@map("drive_sync_items")
 }

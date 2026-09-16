@@ -31,7 +31,7 @@ pnpm install
 cp .env.example .env            # set SESSION_SECRET; GitHub App vars can wait
 pnpm db:migrate                  # creates data/reedright.db
 pnpm dev                         # http://localhost:5173
-pnpm seed                        # org "liveitup", two users, two tokens, printed
+pnpm seed                        # org "acmecorp", two users, two tokens, printed
 ```
 
 `pnpm test` runs the lint, frontmatter, manifest, owners, and paths suites. `pnpm typecheck` runs React Router typegen plus tsc.
@@ -68,7 +68,7 @@ GITHUB_APP_PRIVATE_KEY_B64=…
 ## Connect an organization
 
 1. Sign up, create an org, pick your handle (for example `cam`). You are the admin and, after scaffolding, the owner of every domain.
-2. Create an empty repository for the brain (for example `liveitup-agent-brain`).
+2. Create an empty repository for the brain (for example `acmecorp-brain`).
 3. Org → Connect → **Install on GitHub**, choose that repository. GitHub sends you back; pick the repo; click **Scaffold**. That writes `SCHEMA.md`, `OWNERS.yaml`, an empty `MANIFEST.md`, and the directory layout in one commit.
 4. Members → invite teammates by email with a handle. They get a link; no GitHub account needed. To let a teammate approve a domain, add their handle to that domain's `owners` in `OWNERS.yaml` (edit it in GitHub or through a PR; a reedright editor is phase 2).
 
@@ -82,7 +82,7 @@ claude mcp add --transport http reedright https://reedright.info/mcp --header "A
 
 and a context snippet to put in a system prompt or `CLAUDE.md`:
 
-> Strongly prefer the `reedright` MCP server as the global read/write knowledgebase for the organization "Live it Up". Before answering questions about Live it Up, call `brain_manifest`, then `brain_read` the relevant paths. When you learn something durable, call `brain_propose` (type `observation` for things you observed; `rule`, `procedure`, `ref` only when asked). Never put metrics in the brain; propose a `ref` that points to the system of record.
+> Strongly prefer the `reedright` MCP server as the global read/write knowledgebase for the organization "Acme Corp". Before answering questions about Acme Corp, call `brain_manifest`, then `brain_read` the relevant paths. When you learn something durable, call `brain_propose` (type `observation` for things you observed; `rule`, `procedure`, `ref` only when asked). Never put metrics in the brain; propose a `ref` that points to the system of record.
 
 Tools: `brain_whoami`, `brain_manifest`, `brain_list`, `brain_read`, `brain_search`, `brain_propose`, `brain_revise` (the author edits an open proposal before approval), `brain_status`. The endpoint is stateless Streamable HTTP with JSON responses; any MCP client that can send a bearer header works (Claude Code, the Agent SDK, Cursor). claude.ai's connector UI signs in with OAuth; see below.
 
@@ -91,7 +91,7 @@ Tools: `brain_whoami`, `brain_manifest`, `brain_list`, `brain_read`, `brain_sear
 Two agents, two tokens, one admin. Observations auto-merge; a rule waits; the admin approves; the approval lands in the file.
 
 ```
-APP_URL=https://reedright.info ORG_SLUG=liveitup \
+APP_URL=https://reedright.info ORG_SLUG=acmecorp \
 TOKEN_A=rr_… TOKEN_B=rr_… ADMIN_EMAIL=… ADMIN_PASSWORD=… pnpm acceptance
 ```
 

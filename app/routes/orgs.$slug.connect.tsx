@@ -100,7 +100,7 @@ export default function Connect({ loaderData, actionData }: Route.ComponentProps
         ) : (
           <>
             <p className="mb-3 text-sm text-stone-600 dark:text-stone-400">
-              Create an empty repository for the brain first (for example <code>liveitup-agent-brain</code>), then install the app on it. GitHub sends you back here.
+              Create an empty repository for the brain first (for example <code>acmecorp-brain</code>), then install the app on it. GitHub sends you back here.
             </p>
             <Form method="post"><input type="hidden" name="intent" value="install" /><SubmitButton pendingText="Redirecting to GitHub…">Install on GitHub</SubmitButton></Form>
             {installations.length > 0 && (

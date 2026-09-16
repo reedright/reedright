@@ -34,10 +34,10 @@ export default function NewOrg({ loaderData, actionData }: Route.ComponentProps)
       <Card>
         <Form method="post" className="space-y-4">
           {actionData?.error && <Alert>{actionData.error}</Alert>}
-          <div><Label htmlFor="name">Name</Label><Input id="name" name="name" required placeholder="Live it Up" /></div>
+          <div><Label htmlFor="name">Name</Label><Input id="name" name="name" required placeholder="Acme Corp" /></div>
           <div>
             <Label htmlFor="slug">Slug</Label>
-            <Input id="slug" name="slug" placeholder="liveitup" pattern="[a-z0-9][a-z0-9-]{1,38}" />
+            <Input id="slug" name="slug" placeholder="acmecorp" pattern="[a-z0-9][a-z0-9-]{1,38}" />
             <p className="mt-1 text-xs text-stone-500">Used in URLs. Leave blank to derive from the name.</p>
           </div>
           <div>

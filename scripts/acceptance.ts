@@ -1,6 +1,6 @@
 // End-to-end acceptance test (plan M6). Two agents with different tokens, an admin approval, assertions through the MCP endpoint itself.
 //
-//   APP_URL=https://reedright.info ORG_SLUG=liveitup TOKEN_A=rr_... TOKEN_B=rr_... \
+//   APP_URL=https://reedright.info ORG_SLUG=acmecorp TOKEN_A=rr_... TOKEN_B=rr_... \
 //   ADMIN_EMAIL=cam@example.com ADMIN_PASSWORD=... pnpm acceptance
 //
 // TOKEN_A must belong to an org admin whose handle owns the `marketing` domain in OWNERS.yaml.
@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const APP_URL = (process.env.APP_URL ?? "http://localhost:5173").replace(/\/$/, "");
-const ORG_SLUG = process.env.ORG_SLUG ?? "liveitup";
+const ORG_SLUG = process.env.ORG_SLUG ?? "acmecorp";
 const TOKEN_A = process.env.TOKEN_A ?? "";
 const TOKEN_B = process.env.TOKEN_B ?? "";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "";

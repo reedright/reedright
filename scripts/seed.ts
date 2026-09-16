@@ -4,7 +4,7 @@ import { prisma, now } from "../app/lib/db.server";
 import { hashPassword } from "../app/lib/password.server";
 import { mintToken } from "../app/lib/tokens.server";
 
-const [slug = "liveitup", adminEmail = "cam@example.com", memberEmail = "roadrunner@example.com"] = process.argv.slice(2);
+const [slug = "acmecorp", adminEmail = "cam@example.com", memberEmail = "roadrunner@example.com"] = process.argv.slice(2);
 const password = process.env.SEED_PASSWORD ?? "password123";
 
 async function upsertUser(email: string, name: string) {
@@ -17,7 +17,7 @@ async function main() {
   const admin = await upsertUser(adminEmail, "Cam");
   const member = await upsertUser(memberEmail, "RoadRunner");
   let org = await prisma().org.findUnique({ where: { slug } });
-  if (!org) org = await prisma().org.create({ data: { slug, name: slug === "liveitup" ? "Live it Up" : slug, createdAt: now() } });
+  if (!org) org = await prisma().org.create({ data: { slug, name: slug === "acmecorp" ? "Acme Corp" : slug, createdAt: now() } });
   for (const [u, handle, role] of [[admin, "cam", "admin"], [member, "growth-lead", "member"]] as const) {
     const m = await prisma().membership.findUnique({ where: { userId_orgId: { userId: u.id, orgId: org.id } } });
     if (!m) await prisma().membership.create({ data: { userId: u.id, orgId: org.id, handle, role, createdAt: now() } });
