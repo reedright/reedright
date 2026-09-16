@@ -1,6 +1,7 @@
 import { Form, NavLink, Outlet } from "react-router";
 import type { Route } from "./+types/orgs.$slug";
 import { requireMember } from "~/lib/session.server";
+import { Lockup } from "~/components/mark";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { user, org, membership } = await requireMember(request, params.slug);
@@ -25,8 +26,8 @@ export default function OrgLayout({ loaderData }: Route.ComponentProps) {
   return (
     <>
       <header className="border-b border-stone-200 dark:border-stone-800">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-baseline gap-x-6 gap-y-2 px-6 py-3">
-          <NavLink to="/" className="text-lg font-semibold tracking-tight">reedright</NavLink>
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-6 gap-y-2 px-6 py-3">
+          <Lockup />
           <span className="text-stone-400">/</span>
           <span className="font-medium">{org.name}</span>
           <nav className="flex gap-4 text-sm">

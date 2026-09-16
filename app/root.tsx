@@ -1,6 +1,11 @@
 import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router";
 import type { Route } from "./+types/root";
+import "@fontsource-variable/source-sans-3";
 import "./app.css";
+
+export function meta() {
+  return [{ title: "reedright" }];
+}
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -8,8 +13,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>reedright</title>
-        <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%276%27 fill=%27%231c1917%27/%3E%3Ctext x=%2716%27 y=%2722%27 text-anchor=%27middle%27 font-family=%27ui-monospace,monospace%27 font-size=%2718%27 fill=%27%23fafaf9%27%3Err%3C/text%3E%3C/svg%3E" />
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <Meta />
         <Links />
       </head>

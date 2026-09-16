@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Source Sans 3 Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  /* The one accent: reed green. It is also the "approved" color. Paper and ink are stone-50/950 and stone-900/100. */
+  --color-reed: #4a7a3d;
+  --color-reed-light: #8fbf7a;
 }
 
 html { color-scheme: light dark; }

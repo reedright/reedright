@@ -21,6 +21,7 @@
     "github:check": "tsx scripts/github-check.ts"
   },
   "dependencies": {
+    "@fontsource-variable/source-sans-3": "^5.3.0",
     "@modelcontextprotocol/sdk": "1.30.0",
     "@prisma/adapter-better-sqlite3": "7.10.0",
     "@prisma/client": "7.10.0",
