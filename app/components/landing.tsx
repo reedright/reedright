@@ -4,6 +4,8 @@
 import { Link } from "react-router";
 import { Badge } from "./ui";
 import { Lockup, Mark } from "./mark";
+import { Art } from "./art";
+import { ThemeToggle } from "./theme";
 
 const primary = "inline-flex items-center justify-center rounded-md bg-stone-900 px-4 py-2.5 text-base font-semibold text-white hover:bg-stone-700 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-300";
 const secondary = "inline-flex items-center justify-center rounded-md border border-stone-300 bg-white px-4 py-2.5 text-base font-semibold text-stone-900 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800";
@@ -99,22 +101,20 @@ export function Landing() {
         </section>
 
         <section className="mx-auto max-w-5xl px-6 py-14">
-          <div className="relative overflow-hidden rounded-lg border border-stone-200 bg-white p-8 dark:border-stone-800 dark:bg-stone-900 md:p-10">
-            {/* Illustration slot. Placeholder strokes until the commissioned piece lands (docs/positioning.md §13). */}
-            <Reeds className="pointer-events-none absolute -right-4 -bottom-6 h-40 w-auto text-stone-200 dark:text-stone-800 md:h-48" />
-            <div className="relative grid gap-6 md:grid-cols-[1fr_auto] md:items-center">
-              <div>
-                <h2 className="text-[1.75rem] font-semibold leading-tight tracking-tight">Give every AI tool the same brain.</h2>
-                <p className={`mt-2 ${muted}`}>Free for small teams. 2 minutes to connect the first tool.</p>
-              </div>
-              <Link to="/signup" className={primary}>Sign up free</Link>
+          <div className="relative overflow-hidden rounded-lg border border-stone-200 bg-white p-8 dark:border-stone-800 dark:bg-stone-900 md:min-h-[17rem] md:p-10">
+            <Art name="band" preserveAspectRatio="xMaxYMax meet" className="pointer-events-none absolute inset-y-4 right-0 hidden h-[calc(100%-1rem)] w-auto text-stone-900 opacity-20 sm:block dark:text-stone-100 dark:opacity-25" />
+            <div className="relative max-w-md">
+              <h2 className="text-[1.75rem] font-semibold leading-tight tracking-tight">Give every AI tool the same brain.</h2>
+              <p className={`mt-2 ${muted}`}>Free for small teams. 2 minutes to connect the first tool.</p>
+              <Link to="/signup" className={`${primary} mt-6`}>Sign up free</Link>
             </div>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-stone-200 dark:border-stone-800">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-stone-500">
+      <footer>
+        <Art name="reeds" preserveAspectRatio="xMidYMax slice" className="block h-20 w-full text-stone-900 opacity-30 md:h-28 dark:text-stone-100 dark:opacity-35" />
+        <div className="border-t border-stone-200 dark:border-stone-800"><div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-stone-500">
           <div className="flex items-center gap-3">
             <Mark className="h-8" />
             <span>Read. Write. Right.</span>
@@ -124,8 +124,9 @@ export function Landing() {
             <Link className="hover:underline" to="/login">Log in</Link>
             <a className="hover:underline" href="https://github.com/reedright/reedright" target="_blank" rel="noreferrer">Source code</a>
             <span>Apache 2.0</span>
+            <ThemeToggle />
           </nav>
-        </div>
+        </div></div>
       </footer>
     </div>
   );
@@ -359,22 +360,5 @@ function SiteMock() {
       </div>
       <figcaption className="mt-2 text-xs text-stone-500">The same brain: a website for people, files for the company.</figcaption>
     </figure>
-  );
-}
-
-/** Decorative reeds in the mark's language: single-weight strokes with joints. */
-function Reeds({ className = "" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 200 160" aria-hidden="true" className={className}>
-      <g fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-        <path d="M40 158 C 42 110, 38 70, 48 18" />
-        <path d="M82 158 C 80 120, 88 80, 80 28" />
-        <path d="M122 158 C 126 100, 118 60, 130 10" />
-        <path d="M162 158 C 160 115, 168 90, 158 36" />
-        <path d="M47 62 c 22 -12, 36 -14, 56 -6" />
-        <path d="M129 46 c -18 -12, -30 -10, -44 4" />
-        <path d="M37 108 h11 M81 98 h10 M123 88 h10 M162 118 h10 M43 46 h10" />
-      </g>
-    </svg>
   );
 }

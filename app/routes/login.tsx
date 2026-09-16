@@ -5,6 +5,7 @@ import { verifyPassword } from "~/lib/password.server";
 import { createUserSession, getUser, safeNext } from "~/lib/session.server";
 import { str } from "~/lib/validate";
 import { Alert, Button, Card, Input, Label } from "~/components/ui";
+import { Art } from "~/components/art";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await getUser(request);
@@ -26,6 +27,8 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function Login({ loaderData, actionData }: Route.ComponentProps) {
   return (
+    <>
+    <Art name="stalk" preserveAspectRatio="xMinYMax meet" className="pointer-events-none fixed bottom-0 left-10 hidden h-[62vh] w-auto text-stone-900 opacity-20 lg:block dark:text-stone-100 dark:opacity-25" />
     <main className="mx-auto max-w-sm px-6 py-16">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">Log in</h1>
       <Card>
@@ -41,5 +44,6 @@ export default function Login({ loaderData, actionData }: Route.ComponentProps) 
         New here? <Link className="underline" to={`/signup?next=${encodeURIComponent(loaderData.next)}`}>Create an account</Link>
       </p>
     </main>
+    </>
   );
 }

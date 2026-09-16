@@ -2,6 +2,7 @@ import { Form, NavLink, Outlet } from "react-router";
 import type { Route } from "./+types/orgs.$slug";
 import { requireMember } from "~/lib/session.server";
 import { Lockup } from "~/components/mark";
+import { ThemeToggle } from "~/components/theme";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
   const { user, org, membership } = await requireMember(request, params.slug);
@@ -47,6 +48,7 @@ export default function OrgLayout({ loaderData }: Route.ComponentProps) {
           <span className="ml-auto flex items-center gap-3 text-xs text-stone-400">
             <span>{user.email} · <span className="font-mono">{membership.handle}</span></span>
             <Form method="post" action="/logout"><button className="underline">Log out</button></Form>
+            <ThemeToggle />
           </span>
         </div>
       </header>

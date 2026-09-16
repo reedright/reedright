@@ -5,6 +5,7 @@ import { prisma } from "~/lib/db.server";
 import { env } from "~/lib/env.server";
 import { Landing } from "~/components/landing";
 import { Lockup } from "~/components/mark";
+import { ThemeToggle } from "~/components/theme";
 import { Badge, Button, Card, Empty } from "~/components/ui";
 
 export async function loader({ request }: Route.LoaderArgs) {
@@ -51,6 +52,7 @@ export default function Index({ loaderData }: Route.ComponentProps) {
         <div className="flex items-center gap-3 text-sm text-stone-500">
           <span>{user.email}</span>
           <Form method="post" action="/logout"><button className="underline">Log out</button></Form>
+          <ThemeToggle />
         </div>
       </div>
       {orgs.length === 0 ? (
