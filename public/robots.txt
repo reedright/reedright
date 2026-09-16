@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /orgs/
+Disallow: /oauth/
+Disallow: /mcp
+Disallow: /invite/

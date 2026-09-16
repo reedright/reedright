@@ -24,4 +24,14 @@ app.use(express.static("build/client", { maxAge: "1h" }));
 app.all("*", createRequestHandler({ build, mode: process.env.NODE_ENV }));
 
 const port = Number(process.env.PORT ?? 3000);
-app.listen(port, "0.0.0.0", () => console.log(`reedright listening on :${port}`));
+const server = app.listen(port, "0.0.0.0", () => console.log(`reedright listening on :${port}`));
+
+// Railway stops a replaced container with SIGTERM. Without a handler Node exits 143, pnpm reports
+// "ELIFECYCLE Command failed", and Railway counts the deploy as crashed. Close and exit cleanly instead.
+for (const signal of ["SIGTERM", "SIGINT"]) {
+  process.on(signal, () => {
+    console.log(`${signal} received, shutting down`);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 5000).unref();
+  });
+}

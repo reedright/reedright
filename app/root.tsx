@@ -27,6 +27,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           }}
         />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" sizes="32x32" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <Meta />
@@ -45,6 +46,13 @@ export default function App({ loaderData }: Route.ComponentProps) {
   const posthog = usePostHog();
   const user = loaderData.user;
   const identified = useRef<string | null>(null);
+  // Initialize after hydration, never before: PostHog injects script tags into the document, and React 19
+  // hydrates the whole document, so anything added early can turn into a hydration mismatch.
+  useEffect(() => {
+    const token = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN;
+    if (!token || !posthog || posthog.__loaded) return;
+    posthog.init(token, { api_host: import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com", defaults: "2026-05-30" });
+  }, [posthog]);
   useEffect(() => {
     if (!posthog?.__loaded) return;
     if (user && identified.current !== user.id) {
