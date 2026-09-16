@@ -10,3 +10,6 @@ build
 .claude/skills/prisma-*
 .agents/
 skills-lock.json
+# never commit Google service account keys
+*service-account*.json
+*.iam.gserviceaccount.com*.json
