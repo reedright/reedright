@@ -30,6 +30,8 @@ export interface ProposeResult {
   path: string;
   pr_number: number;
   pr_url: string;
+  /** The reedright review page for this request (rendered files, diffs, approve/reject). */
+  review_url: string;
   status: "open" | "merged";
   approvers: string[];
   warnings: string[];
@@ -164,10 +166,10 @@ export async function propose(ctx: TokenContext, input: ProposeInput): Promise<P
     await regenerateManifest(repo);
     await repo.deleteBranch(branch);
     await prisma().writeRequest.update({ where: { id: requestId }, data: { status: "merged", updatedAt: now() } });
-    return { request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, status: "merged", approvers: [], warnings, message: `Observation merged to ${repo.defaultBranch} as ${path}. MANIFEST.md updated.` };
+    return { request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${requestId}`, status: "merged", approvers: [], warnings, message: `Observation merged to ${repo.defaultBranch} as ${path}. MANIFEST.md updated.` };
   }
   return {
-    request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, status: "open", approvers, warnings,
+    request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${requestId}`, status: "open", approvers, warnings,
     message: approvers.length
       ? `Pull request opened. A ${input.type} needs approval from an owner of ${input.domain}: ${approvers.join(", ")}. They approve at ${env.APP_URL}/orgs/${org.slug}/approvals.`
       : `Pull request opened, but OWNERS.yaml lists no owner for ${input.domain}. An admin must fix OWNERS.yaml before anyone can approve.`,

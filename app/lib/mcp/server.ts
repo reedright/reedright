@@ -200,7 +200,7 @@ export function buildServer(ctx: TokenContext): McpServer {
       if (!wr || wr.orgId !== org.id) return fail({ error: "No such write request in this organization." });
       const synced = await syncStatus(await repo(), wr);
       return text({
-        request_id: wr.id, status: synced.status, type: wr.type, domain: wr.domain, path: wr.path, author: wr.handle, pr_url: wr.prUrl, created_at: wr.createdAt,
+        request_id: wr.id, status: synced.status, type: wr.type, domain: wr.domain, path: wr.path, author: wr.handle, pr_url: wr.prUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${wr.id}`, created_at: wr.createdAt,
         approvals: wr.approvals.map((a) => ({ decision: a.decision, by: a.approverHandle, at: a.createdAt, note: a.note, ref: `${env.APP_URL}/orgs/${org.slug}/approvals/${a.id}` })),
       });
     },

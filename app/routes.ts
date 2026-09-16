@@ -14,6 +14,8 @@ export default [
     route("tokens", "routes/orgs.$slug.tokens.tsx"),
     route("connect", "routes/orgs.$slug.connect.tsx"),
     route("drive", "routes/orgs.$slug.drive.tsx"),
+    route("reports", "routes/orgs.$slug.reports.tsx"),
+    route("requests/:id", "routes/orgs.$slug.requests.$id.tsx"),
     route("approvals", "routes/orgs.$slug.approvals.tsx"),
     route("approvals/:id", "routes/orgs.$slug.approvals.$id.tsx"),
   ]),

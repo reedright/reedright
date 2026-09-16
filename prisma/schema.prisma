@@ -46,6 +46,7 @@ model Org {
   approvals     Approval[]
   usageLogs     UsageLog[]
   driveSyncs    DriveSync[]
+  toolCalls     ToolCall[]
 
   @@map("orgs")
 }
@@ -157,6 +158,24 @@ model Approval {
 }
 
 // RFC §6/§8: reads record paths, never prompts.
+// One row per MCP tool invocation, for the Reports page. Names and timings only; never arguments or results.
+model ToolCall {
+  id        String  @id @default(cuid())
+  orgId     String  @map("org_id")
+  userId    String  @map("user_id")
+  handle    String
+  tokenId   String  @map("token_id")
+  tool      String
+  ok        Boolean
+  ms        Int
+  createdAt String  @map("created_at")
+
+  org Org @relation(fields: [orgId], references: [id])
+
+  @@index([orgId, createdAt])
+  @@map("tool_calls")
+}
+
 model UsageLog {
   id        String @id @default(cuid())
   orgId     String @map("org_id")

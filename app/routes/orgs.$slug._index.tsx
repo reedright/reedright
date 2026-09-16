@@ -127,7 +127,7 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
                 <tr key={r.id} className="border-t border-stone-100 dark:border-stone-800">
                   <td className="py-2 pr-3 whitespace-nowrap text-stone-500">{r.createdAt}</td>
                   <td className="py-2 pr-3"><Badge>{r.type}/{r.domain}</Badge></td>
-                  <td className="py-2 pr-3"><a className="underline" href={r.prUrl} target="_blank" rel="noreferrer">{r.title}</a></td>
+                  <td className="py-2 pr-3"><Link className="underline" to={`/orgs/${org.slug}/requests/${r.id}`}>{r.title}</Link></td>
                   <td className="py-2 pr-3 font-mono text-xs">{r.handle}</td>
                   <td className="py-2 text-right"><Badge tone={tone[r.status as keyof typeof tone] ?? "neutral"}>{r.status}</Badge></td>
                 </tr>

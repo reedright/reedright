@@ -1,5 +1,6 @@
 // brain_revise: the author edits an open (not yet approved) rule, procedure, or ref. Re-lints, commits to the PR branch.
 import { prisma, now } from "../db.server";
+import { env } from "../env.server";
 import { BrainRepo } from "../github/repo.server";
 import type { TokenContext } from "../tokens.server";
 import { syncStatus } from "./approve.server";
@@ -70,7 +71,7 @@ export async function revise(ctx: TokenContext, input: ReviseInput): Promise<Pro
   });
   const approvers = resolveApprovers(owners, { domain: wr.domain, path: wr.path });
   return {
-    request_id: wr.id, path: wr.path, pr_number: wr.prNumber, pr_url: wr.prUrl, status: "open", approvers,
+    request_id: wr.id, path: wr.path, pr_number: wr.prNumber, pr_url: wr.prUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${wr.id}`, status: "open", approvers,
     warnings: report.warnings.map((w) => `${w.rule}: ${w.message}`),
     message: `Revised. The pull request has a new commit and still needs approval from an owner of ${wr.domain}: ${approvers.join(", ") || "nobody listed in OWNERS.yaml"}.`,
   };

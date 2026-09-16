@@ -7,3 +7,25 @@
 
 html { color-scheme: light dark; }
 body { @apply bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100; }
+
+/* Rendered markdown on the request review page. */
+.markdown { @apply text-sm leading-relaxed; }
+.markdown > * + * { @apply mt-3; }
+.markdown h1 { @apply text-xl font-semibold tracking-tight; }
+.markdown h2 { @apply mt-5 text-lg font-semibold; }
+.markdown h3 { @apply mt-4 text-base font-semibold; }
+.markdown h4, .markdown h5, .markdown h6 { @apply font-semibold; }
+.markdown p { @apply whitespace-pre-wrap; }
+.markdown a { @apply underline; }
+.markdown ul { @apply list-disc pl-5; }
+.markdown ol { @apply list-decimal pl-5; }
+.markdown li + li { @apply mt-1; }
+.markdown blockquote { @apply border-l-2 border-stone-300 pl-3 text-stone-600 dark:border-stone-700 dark:text-stone-400; }
+.markdown code { @apply rounded bg-stone-100 px-1 font-mono text-xs dark:bg-stone-950; }
+.markdown pre { @apply overflow-x-auto rounded-md bg-stone-100 p-3 dark:bg-stone-950; }
+.markdown pre code { @apply bg-transparent p-0; }
+.markdown table { @apply w-full border-collapse text-xs; }
+.markdown th, .markdown td { @apply border border-stone-200 px-2 py-1 text-left align-top dark:border-stone-800; }
+.markdown th { @apply bg-stone-100 font-medium dark:bg-stone-800; }
+.markdown hr { @apply border-stone-200 dark:border-stone-800; }
+.markdown img { @apply max-w-full; }

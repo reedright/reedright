@@ -15,6 +15,15 @@ export interface CommitSpec {
   deletes?: string[];
 }
 
+export interface PRFile {
+  path: string;
+  status: "added" | "removed" | "modified" | "renamed" | "copied" | "changed" | "unchanged";
+  additions: number;
+  deletions: number;
+  patch: string | null;
+  previousPath: string | null;
+}
+
 export interface PRInfo {
   number: number;
   htmlUrl: string;
@@ -143,6 +152,17 @@ export class BrainRepo {
   async getPR(number: number): Promise<PRInfo> {
     const { data } = await this.okt.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", { ...this.base, pull_number: number });
     return { number: data.number, htmlUrl: data.html_url, state: data.state, merged: Boolean(data.merged_at), headRef: data.head.ref, headSha: data.head.sha, title: data.title };
+  }
+
+  /** Files changed by a PR with GitHub's unified patch per file (absent for binary or very large changes). Up to 300 files. */
+  async listPRFiles(number: number): Promise<PRFile[]> {
+    const out: PRFile[] = [];
+    for (let page = 1; page <= 3; page++) {
+      const { data } = await this.okt.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/files", { ...this.base, pull_number: number, per_page: 100, page });
+      out.push(...data.map((f) => ({ path: f.filename, status: f.status as PRFile["status"], additions: f.additions, deletions: f.deletions, patch: f.patch ?? null, previousPath: f.previous_filename ?? null })));
+      if (data.length < 100) break;
+    }
+    return out;
   }
 
   /** Best-effort: labels are cosmetic and need the Issues permission, which an installation may lack. */

@@ -97,6 +97,14 @@ TOKEN_A=rr_… TOKEN_B=rr_… ADMIN_EMAIL=… ADMIN_PASSWORD=… pnpm acceptance
 
 TOKEN_A belongs to the admin (whose handle owns `marketing`); TOKEN_B to any other member. The agents are `claude -p` runs; the assertions go through the MCP endpoint itself, so no GitHub token is needed.
 
+## Reviewing a request
+
+Every write request has a review page at `/orgs/<slug>/requests/<id>` (linked from the approvals queue, the overview, the approval record, and the `review_url` that `brain_propose` and `brain_status` return). It shows the request's provenance, lint warnings, who can approve, and the pull request file by file: each markdown file's frontmatter as a table next to the body rendered as markdown (raw HTML is dropped), and, when the file already existed on the default branch, GitHub's diff inline with old and new line numbers. Supersedes show as a move into `archive/`. Approve and reject work from this page too. Drive-sync requests render the first 25 files and link to the rest on GitHub.
+
+## Reports
+
+`/orgs/<slug>/reports` answers who uses the brain and how, over 7, 30, 90 days or all time: a leaderboard per handle (tool calls, sessions, reads, proposals with merged/open/rejected, approvals given, last active, and which tokens or OAuth clients they connect through), calls per tool, calls per day, a pull-request table per handle and type, and the most-read entries. Every MCP `tools/call` is logged with its name, outcome, and latency (never arguments or results; RFC §8). A session is a run of calls from one token with no gap over thirty minutes, since the transport is stateless.
+
 ## Publish a browsable site (Quartz on GitHub Pages)
 
 Overview → **Publish with Quartz** (admins). reedright turns on GitHub Pages for the brain repository with the "GitHub Actions" build type and commits two files to it: `.github/workflows/reedright-site.yml` and `.github/reedright/site-prep.mjs`. On every push to the default branch (every merge, including the manifest regeneration) the workflow checks out the brain and a pinned [Quartz](https://quartz.jzhao.xyz) release, gives each entry a page title from its heading and tags for its type and domain, builds the home page from `MANIFEST.md` with every path linked, runs `quartz build` straight against the checkout, and deploys to `https://<owner>.github.io/<repo>/` (or the owner's custom Pages domain). **Rebuild now** triggers a build without a push; **Stop publishing** removes the two files.

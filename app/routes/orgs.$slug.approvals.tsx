@@ -1,12 +1,12 @@
-import { Form, Link, data } from "react-router";
+import { Form, Link } from "react-router";
 import type { Route } from "./+types/orgs.$slug.approvals";
 import { prisma } from "~/lib/db.server";
-import { ApproveError, approve, reject, syncStatus } from "~/lib/brain/approve.server";
+import { handleApprovalAction } from "~/lib/brain/approval-action.server";
+import { syncStatus } from "~/lib/brain/approve.server";
 import { parseOwners, resolveApprovers } from "~/lib/brain/owners";
 import { OWNERS_PATH } from "~/lib/brain/paths";
 import { BrainRepo } from "~/lib/github/repo.server";
 import { requireMember } from "~/lib/session.server";
-import { str } from "~/lib/validate";
 import { Alert, Badge, Card, Empty, Input, Page, SubmitButton } from "~/components/ui";
 
 export async function loader({ request, params }: Route.LoaderArgs) {
@@ -46,25 +46,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
 }
 
 export async function action({ request, params }: Route.ActionArgs) {
-  const { org, user, membership } = await requireMember(request, params.slug);
-  const form = await request.formData();
-  const intent = str(form, "intent");
-  const requestId = str(form, "requestId");
-  const note = str(form, "note");
-  try {
-    if (intent === "approve") {
-      const r = await approve({ org, approver: { user, membership }, requestId, note });
-      return data({ ok: `Approved and merged. Approval record: ${r.approvalRef}` });
-    }
-    if (intent === "reject") {
-      await reject({ org, approver: { user, membership }, requestId, note });
-      return data({ ok: "Rejected. The pull request was closed with a comment." });
-    }
-  } catch (e) {
-    if (e instanceof ApproveError) return data({ error: e.message, lint: e.report ? e.report.errors.map((x) => `${x.rule}: ${x.message}`) : [] }, { status: 400 });
-    return data({ error: (e as Error).message, lint: [] }, { status: 500 });
-  }
-  return data({ error: "Unknown action.", lint: [] }, { status: 400 });
+  return handleApprovalAction(request, params.slug);
 }
 
 const tone = { merged: "green", rejected: "red", closed: "neutral" } as const;
@@ -97,9 +79,9 @@ export default function Approvals({ loaderData, actionData }: Route.ComponentPro
               <Card>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2"><Badge tone="amber">{wr.type}</Badge><Badge>{wr.domain}</Badge>{wr.kind === "sync" && <Badge tone="blue">drive sync · {wr.count} file{wr.count === 1 ? "" : "s"}</Badge>}<span className="font-medium">{wr.title}</span></div>
+                    <div className="flex items-center gap-2"><Badge tone="amber">{wr.type}</Badge><Badge>{wr.domain}</Badge>{wr.kind === "sync" && <Badge tone="blue">drive sync · {wr.count} file{wr.count === 1 ? "" : "s"}</Badge>}<Link className="font-medium underline" to={`/orgs/${loaderData.orgSlug}/requests/${wr.id}`}>{wr.title}</Link></div>
                     <p className="mt-1 text-xs text-stone-500">
-                      by <span className="font-mono">{wr.handle}</span> · run <span className="font-mono">{wr.run}</span> · {wr.createdAt} · <a className="underline" href={wr.prUrl} target="_blank" rel="noreferrer">view diff on GitHub</a>
+                      by <span className="font-mono">{wr.handle}</span> · run <span className="font-mono">{wr.run}</span> · {wr.createdAt} · <Link className="underline" to={`/orgs/${loaderData.orgSlug}/requests/${wr.id}`}>review</Link> · <a className="underline" href={wr.prUrl} target="_blank" rel="noreferrer">GitHub</a>
                     </p>
                     <p className="mt-1 font-mono text-xs text-stone-500">{wr.kind === "sync" ? `refs/${wr.domain}/ (${wr.count} files, listed on the PR)` : wr.path}</p>
                     {wr.warnings.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-amber-700 dark:text-amber-400">{wr.warnings.map((w) => <li key={w.rule}>{w.rule}: {w.message}</li>)}</ul>}
@@ -128,7 +110,7 @@ export default function Approvals({ loaderData, actionData }: Route.ComponentPro
                 <tr key={wr.id} className="border-t border-stone-100 dark:border-stone-800">
                   <td className="py-2 pr-3 text-stone-500">{wr.updatedAt}</td>
                   <td className="py-2 pr-3"><Badge>{wr.type}/{wr.domain}</Badge></td>
-                  <td className="py-2 pr-3"><a className="underline" href={wr.prUrl} target="_blank" rel="noreferrer">{wr.title}</a></td>
+                  <td className="py-2 pr-3"><Link className="underline" to={`/orgs/${loaderData.orgSlug}/requests/${wr.id}`}>{wr.title}</Link></td>
                   <td className="py-2 pr-3 font-mono text-xs">{wr.handle}</td>
                   <td className="py-2 pr-3 text-xs">{wr.approvals.map((a) => <Link key={a.id} className="underline" to={`/orgs/${loaderData.orgSlug}/approvals/${a.id}`}>{a.decision} by {a.by}</Link>)}</td>
                   <td className="py-2 text-right"><Badge tone={tone[wr.status as keyof typeof tone] ?? "neutral"}>{wr.status}</Badge></td>

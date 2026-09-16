@@ -40,6 +40,7 @@ export default function ApprovalRecord({ loaderData: a }: Route.ComponentProps) 
           <dt className="text-stone-500">author</dt><dd><span className="font-mono">{a.request.handle}</span> ({a.request.authorName})</dd>
           <dt className="text-stone-500">run</dt><dd className="font-mono">{a.request.run}</dd>
           <dt className="text-stone-500">proposed</dt><dd className="font-mono">{a.request.createdAt}</dd>
+          <dt className="text-stone-500">review</dt><dd><Link className="underline" to={`/orgs/${a.orgSlug}/requests/${a.request.id}`}>what was proposed, file by file</Link></dd>
           <dt className="text-stone-500">pull request</dt><dd><a className="underline" href={a.request.prUrl} target="_blank" rel="noreferrer">{a.request.prUrl}</a> <Badge tone={a.request.status === "merged" ? "green" : "neutral"}>{a.request.status}</Badge></dd>
         </dl>
         <p className="mt-4 text-xs text-stone-500">This page is the approval event referenced by <code>approval_ref</code> in the file. Git history records the file change; this record is who decided and when.</p>
