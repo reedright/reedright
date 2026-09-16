@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import YAML from "yaml";
 import { describe, expect, it } from "vitest";
-import { QUARTZ_REF, SITE_PREP_PATH, SITE_PREP_SCRIPT, SITE_WORKFLOW_PATH, pagesUrlFor, renderSiteWorkflow, siteFiles } from "~/lib/brain/site";
+import { QUARTZ_REF, SITE_PREP_PATH, SITE_WORKFLOW_PATH, pagesUrlFor, renderSiteWorkflow, siteFiles } from "~/lib/brain/site";
 import { rule } from "./fixtures";
 
 describe("site: workflow", () => {
@@ -26,8 +26,9 @@ describe("site: workflow", () => {
     expect(jobs.deploy.environment.name).toBe("github-pages");
   });
   it("ships the workflow and the prep script", () => {
-    expect(siteFiles({ defaultBranch: "main", siteTitle: "x" }).map((f) => f.path)).toEqual([SITE_WORKFLOW_PATH, SITE_PREP_PATH]);
-    expect(SITE_PREP_SCRIPT).toContain("quartz.config.ts");
+    const files = siteFiles({ defaultBranch: "main", siteTitle: "x" }, readFileSync(resolve("app/lib/brain/site-prep.mjs"), "utf8"));
+    expect(files.map((f) => f.path)).toEqual([SITE_WORKFLOW_PATH, SITE_PREP_PATH]);
+    expect(files[1].content).toContain("quartz.config.ts");
   });
   it("knows the default Pages URL", () => {
     expect(pagesUrlFor("Cam5", "smoothbrain")).toBe("https://cam5.github.io/smoothbrain/");

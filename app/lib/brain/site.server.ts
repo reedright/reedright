@@ -3,6 +3,8 @@ import type { Org } from "../../../generated/prisma/client";
 import { prisma, now } from "../db.server";
 import { BrainRepo } from "../github/repo.server";
 import { SITE_PREP_PATH, SITE_WORKFLOW_PATH, pagesUrlFor, siteFiles, siteTitleFor } from "./site";
+// Vite inlines the script source; the file itself is also what tests execute.
+import prepScript from "./site-prep.mjs?raw";
 
 export interface PublishResult {
   siteUrl: string;
@@ -16,7 +18,7 @@ export async function publishSite(org: Org): Promise<PublishResult> {
   const repo = await BrainRepo.forOrg(org);
   if (!(await repo.headSha())) throw new Error("The brain repository is empty; scaffold it first.");
   const warnings: string[] = [];
-  const wanted = siteFiles({ defaultBranch: repo.defaultBranch, siteTitle: siteTitleFor(org.name) });
+  const wanted = siteFiles({ defaultBranch: repo.defaultBranch, siteTitle: siteTitleFor(org.name) }, prepScript);
   const writes: typeof wanted = [];
   for (const f of wanted) if ((await repo.readFile(f.path))?.content !== f.content) writes.push(f);
 

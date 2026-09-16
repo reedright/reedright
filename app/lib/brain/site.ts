@@ -1,11 +1,8 @@
 // Pure half of site publishing: the GitHub Actions workflow that builds a Quartz site from the brain and deploys
 // it to GitHub Pages. The site is a cache of the repository (RFC §1); deleting the two generated files stops it.
-import prepScript from "./site-prep.mjs?raw";
-
 export const SITE_WORKFLOW_PATH = ".github/workflows/reedright-site.yml";
 export const SITE_PREP_PATH = ".github/reedright/site-prep.mjs";
 export const QUARTZ_REF = "v4.5.2";
-export const SITE_PREP_SCRIPT: string = prepScript;
 
 export const siteTitleFor = (orgName: string) => `${orgName} brain`;
 
@@ -88,9 +85,10 @@ jobs:
 `;
 }
 
-export function siteFiles(input: { defaultBranch: string; siteTitle: string }): Array<{ path: string; content: string }> {
+/** The two files committed to the brain repository. `prepScript` is the source of site-prep.mjs. */
+export function siteFiles(input: { defaultBranch: string; siteTitle: string }, prepScript: string): Array<{ path: string; content: string }> {
   return [
     { path: SITE_WORKFLOW_PATH, content: renderSiteWorkflow(input) },
-    { path: SITE_PREP_PATH, content: SITE_PREP_SCRIPT },
+    { path: SITE_PREP_PATH, content: prepScript },
   ];
 }
