@@ -18,6 +18,7 @@ export default function OrgLayout({ loaderData }: Route.ComponentProps) {
     ["approvals", "Approvals", true],
     ["members", "Members", true],
     ["tokens", "Tokens", true],
+    ["drive", "Drive", true],
     ["connect", "Connect", membership.role === "admin"],
   ];
   return (

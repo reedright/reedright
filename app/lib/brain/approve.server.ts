@@ -48,31 +48,40 @@ export async function approve(input: { org: Org; approver: { user: User; members
   if (!eligible.includes(handle)) throw new ApproveError(`Only an owner of "${wr.domain}" can approve this ${wr.type}. Owners: ${eligible.join(", ") || "none listed in OWNERS.yaml"}.`);
 
   const pr = await repo.getPR(wr.prNumber);
-  const file = await repo.readFile(wr.path, pr.headRef);
-  if (!file) throw new ApproveError(`${wr.path} is missing from branch ${pr.headRef}.`);
-  const split = splitFrontmatter(file.content);
-  const parsed = split.data ? FrontmatterSchema.safeParse(split.data) : null;
-  if (!parsed?.success) throw new ApproveError("The file on the PR branch no longer has valid frontmatter.");
-
+  const paths: string[] = wr.kind === "sync" && wr.paths ? (JSON.parse(wr.paths) as string[]) : [wr.path];
   const approval = await prisma().approval.create({
     data: { writeRequestId: wr.id, orgId: org.id, approverUserId: approver.user.id, approverHandle: handle, decision: "approve", note: input.note || null, createdAt: now() },
   });
   const approvalRef = `${env.APP_URL}/orgs/${org.slug}/approvals/${approval.id}`;
-  const fm = { ...parsed.data, approved_by: handle, approved_at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"), approval_ref: approvalRef };
-  const raw = serializeEntry(fm, split.body);
-
-  const dir = `${TYPE_DIR[fm.type]}/${fm.domain}/`;
-  const siblingPaths = (await repo.listPaths()).filter((p) => p.startsWith(dir) && p.endsWith(".md") && p !== wr.path);
-  const siblings = (await repo.readMany(siblingPaths))
-    .filter((s): s is { path: string; raw: string } => typeof s.raw === "string")
-    .map((s) => ({ path: s.path, body: splitFrontmatter(s.raw).body }));
-  const report = lint({ path: wr.path, raw, owners, siblings, mode: "final", similarityThreshold: org.similarityThreshold });
-  if (!report.ok) {
+  const approvedAt = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+  const writes: Array<{ path: string; content: string }> = [];
+  try {
+    for (const path of paths) {
+      const file = await repo.readFile(path, pr.headRef);
+      if (!file) throw new ApproveError(`${path} is missing from branch ${pr.headRef}.`);
+      const split = splitFrontmatter(file.content);
+      const parsed = split.data ? FrontmatterSchema.safeParse(split.data) : null;
+      if (!parsed?.success) throw new ApproveError(`${path} on the PR branch no longer has valid frontmatter.`);
+      const fm = { ...parsed.data, approved_by: handle, approved_at: approvedAt, approval_ref: approvalRef };
+      const raw = serializeEntry(fm, split.body);
+      let siblings: Array<{ path: string; body: string }> = [];
+      if (wr.kind !== "sync") {
+        const dir = `${TYPE_DIR[fm.type]}/${fm.domain}/`;
+        const siblingPaths = (await repo.listPaths()).filter((p) => p.startsWith(dir) && p.endsWith(".md") && p !== path);
+        siblings = (await repo.readMany(siblingPaths))
+          .filter((s): s is { path: string; raw: string } => typeof s.raw === "string")
+          .map((s) => ({ path: s.path, body: splitFrontmatter(s.raw).body }));
+      }
+      const report = lint({ path, raw, owners, siblings, mode: "final", similarityThreshold: org.similarityThreshold });
+      if (!report.ok) throw new ApproveError(`${path} no longer passes lint, so nothing was merged.`, report);
+      writes.push({ path, content: raw });
+    }
+  } catch (e) {
     await prisma().approval.delete({ where: { id: approval.id } });
-    throw new ApproveError("The file no longer passes lint, so it was not merged.", report);
+    throw e;
   }
 
-  await repo.commit({ branch: pr.headRef, message: `approve: ${handle} via reedright\n\napproval_ref: ${approvalRef}`, writes: [{ path: wr.path, content: raw }] });
+  await repo.commit({ branch: pr.headRef, message: `approve: ${handle} via reedright (${writes.length} file${writes.length === 1 ? "" : "s"})\n\napproval_ref: ${approvalRef}`, writes });
   await repo.mergePR(wr.prNumber, `${wr.type}(${wr.domain}): ${wr.title}`, `Approved by ${handle} (reedright approval ${approval.id}).\nAuthor: ${wr.handle}\nRun: ${wr.run}`);
   await regenerateManifest(repo);
   await repo.deleteBranch(pr.headRef);
@@ -92,5 +101,10 @@ export async function reject(input: { org: Org; approver: { user: User; membersh
   await repo.closePR(wr.prNumber);
   await repo.deleteBranch(wr.branch);
   await prisma().writeRequest.update({ where: { id: wr.id }, data: { status: "rejected", updatedAt: now() } });
+  if (wr.kind === "sync") {
+    // Forget what this PR claimed so the next run re-proposes it.
+    await prisma().driveSyncItem.updateMany({ where: { requestId: wr.id, archivedAt: null }, data: { modifiedTime: "", requestId: null } });
+    await prisma().driveSyncItem.updateMany({ where: { requestId: wr.id, NOT: { archivedAt: null } }, data: { archivedAt: null, requestId: null } });
+  }
   return { approvalId: approval.id };
 }

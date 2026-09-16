@@ -44,7 +44,7 @@ export function describeMode(mode: IngestMode): string {
 }
 
 export function slugifyName(name: string): string {
-  const s = name.toLowerCase().replace(/\.[a-z0-9]{1,5}$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+  const s = name.trim().toLowerCase().replace(/\.[a-z0-9]{1,5}$/, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
   return s || "file";
 }
 

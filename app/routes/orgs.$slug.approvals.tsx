@@ -38,7 +38,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     open: openRows.map((wr) => {
       const eligible = eligibleFor.get(wr.id) ?? [];
       const lint = JSON.parse(wr.lintReport) as { warnings?: Array<{ rule: string; message: string }> };
-      return { id: wr.id, type: wr.type, domain: wr.domain, title: wr.title, path: wr.path, handle: wr.handle, run: wr.run, prUrl: wr.prUrl, createdAt: wr.createdAt.slice(0, 16).replace("T", " "), eligible, canApprove: eligible.includes(membership.handle), warnings: lint.warnings ?? [] };
+      const count = wr.kind === "sync" && wr.paths ? (JSON.parse(wr.paths) as string[]).length : 1;
+      return { id: wr.id, kind: wr.kind, count, type: wr.type, domain: wr.domain, title: wr.title, path: wr.path, handle: wr.handle, run: wr.run, prUrl: wr.prUrl, createdAt: wr.createdAt.slice(0, 16).replace("T", " "), eligible, canApprove: eligible.includes(membership.handle), warnings: lint.warnings ?? [] };
     }),
     decided: decided.map((wr) => ({ id: wr.id, type: wr.type, domain: wr.domain, title: wr.title, handle: wr.handle, status: wr.status, prUrl: wr.prUrl, updatedAt: wr.updatedAt.slice(0, 10), approvals: wr.approvals.map((a) => ({ id: a.id, decision: a.decision, by: a.approverHandle })) })),
   };
@@ -96,11 +97,11 @@ export default function Approvals({ loaderData, actionData }: Route.ComponentPro
               <Card>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2"><Badge tone="amber">{wr.type}</Badge><Badge>{wr.domain}</Badge><span className="font-medium">{wr.title}</span></div>
+                    <div className="flex items-center gap-2"><Badge tone="amber">{wr.type}</Badge><Badge>{wr.domain}</Badge>{wr.kind === "sync" && <Badge tone="blue">drive sync · {wr.count} file{wr.count === 1 ? "" : "s"}</Badge>}<span className="font-medium">{wr.title}</span></div>
                     <p className="mt-1 text-xs text-stone-500">
                       by <span className="font-mono">{wr.handle}</span> · run <span className="font-mono">{wr.run}</span> · {wr.createdAt} · <a className="underline" href={wr.prUrl} target="_blank" rel="noreferrer">view diff on GitHub</a>
                     </p>
-                    <p className="mt-1 font-mono text-xs text-stone-500">{wr.path}</p>
+                    <p className="mt-1 font-mono text-xs text-stone-500">{wr.kind === "sync" ? `refs/${wr.domain}/ (${wr.count} files, listed on the PR)` : wr.path}</p>
                     {wr.warnings.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-amber-700 dark:text-amber-400">{wr.warnings.map((w) => <li key={w.rule}>{w.rule}: {w.message}</li>)}</ul>}
                     <p className="mt-2 text-xs text-stone-500">Can approve: {wr.eligible.length ? wr.eligible.map((h) => <Badge key={h} tone={h === handle ? "green" : "neutral"}>{h}</Badge>) : "nobody listed in OWNERS.yaml"}</p>
                   </div>
