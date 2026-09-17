@@ -1,4 +1,6 @@
-// brain_revise: the author edits an open (not yet approved) rule, procedure, or ref. Re-lints, commits to the PR branch.
+// brain_revise: the author edits an open request (a rule, procedure, or ref awaiting approval, or an observation a
+// rule held for review). Re-lints, re-runs the rules, commits to the PR branch. A held observation that no longer
+// trips any rule merges here, as it would have on proposal.
 import { prisma, now } from "../db.server";
 import { env } from "../env.server";
 import { BrainRepo } from "../github/repo.server";
@@ -6,10 +8,12 @@ import type { TokenContext } from "../tokens.server";
 import { syncStatus } from "./approve.server";
 import { serializeEntry, splitFrontmatter, titleOf } from "./frontmatter";
 import { lint } from "./lint";
+import { regenerateManifest } from "./manifest.server";
 import { parseOwners, resolveApprovers } from "./owners";
 import { OWNERS_PATH } from "./paths";
 import { ProposeError, type ProposeResult } from "./propose.server";
-import { FrontmatterSchema, TYPE_DIR, isValidDate } from "./schema";
+import { describeHit, evaluateRules, parseEnabledRules } from "./rules";
+import { FrontmatterSchema, NEEDS_APPROVAL, TYPE_DIR, isValidDate } from "./schema";
 
 export interface ReviseInput {
   request_id: string;
@@ -62,17 +66,29 @@ export async function revise(ctx: TokenContext, input: ReviseInput): Promise<Pro
     .map((s) => ({ path: s.path, body: splitFrontmatter(s.raw).body }));
   const report = lint({ path: wr.path, raw, owners, siblings, mode: "proposal", similarityThreshold: org.similarityThreshold });
   if (!report.ok) throw new ProposeError("Lint failed. Fix the errors and revise again.", report);
+  const flags = evaluateRules(parseEnabledRules(org.enabledRules), [{ path: wr.path, content: raw }]);
 
   await repo.commit({ branch: pr.headRef, message: `revise: ${title}\n\nAuthor: ${membership.handle} (reedright)`, writes: [{ path: wr.path, content: raw }] });
   if (title !== wr.title) await repo.updatePR(wr.prNumber, { title: `[${wr.type}/${wr.domain}] ${title}` });
   await prisma().writeRequest.update({
     where: { id: wr.id },
-    data: { title, lintReport: JSON.stringify({ errors: report.errors, warnings: report.warnings, similarity: report.similarity }), updatedAt: now() },
+    data: { title, lintReport: JSON.stringify({ errors: report.errors, warnings: report.warnings, similarity: report.similarity }), flags: flags.length ? JSON.stringify(flags) : null, updatedAt: now() },
   });
+  const common = { request_id: wr.id, path: wr.path, pr_number: wr.prNumber, pr_url: wr.prUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${wr.id}`, warnings: report.warnings.map((w) => `${w.rule}: ${w.message}`), flags };
+
+  if (!NEEDS_APPROVAL[fm.type] && !flags.length) {
+    await repo.mergePR(wr.prNumber, `${wr.type}(${wr.domain}): ${title}`, `Auto-merged by reedright: observation passed lint and no rule flags it after revision.\n\nAuthor: ${wr.handle}\nRun: ${wr.run}`);
+    await regenerateManifest(repo);
+    await repo.deleteBranch(pr.headRef);
+    await prisma().writeRequest.update({ where: { id: wr.id }, data: { status: "merged", updatedAt: now() } });
+    return { ...common, status: "merged", approvers: [], message: `Revised and merged to ${repo.defaultBranch} as ${wr.path}: no rule flags it now. MANIFEST.md updated.` };
+  }
   const approvers = resolveApprovers(owners, { domain: wr.domain, path: wr.path });
+  const who = approvers.join(", ") || "nobody listed in OWNERS.yaml";
   return {
-    request_id: wr.id, path: wr.path, pr_number: wr.prNumber, pr_url: wr.prUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${wr.id}`, status: "open", approvers,
-    warnings: report.warnings.map((w) => `${w.rule}: ${w.message}`),
-    message: `Revised. The pull request has a new commit and still needs approval from an owner of ${wr.domain}: ${approvers.join(", ") || "nobody listed in OWNERS.yaml"}.`,
+    ...common, status: "open", approvers,
+    message: NEEDS_APPROVAL[fm.type]
+      ? `Revised. The pull request has a new commit and still needs approval from an owner of ${wr.domain}: ${who}.${flags.length ? ` Still flagged for review: ${flags.map(describeHit).join("; ")}.` : ""}`
+      : `Revised, but still held for review: ${flags.map(describeHit).join("; ")}. An owner of ${wr.domain} (${who}) decides, or revise again to clear the flag.`,
   };
 }

@@ -43,7 +43,7 @@ pnpm seed                        # org "acmecorp", two users, two tokens, printe
 3. Identifying and authorizing users: leave the redirect URI empty; do not request user authorization during installation.
 4. Post installation: Setup URL `<APP_URL>/github/setup`, tick **Redirect on update**.
 5. Webhook: untick **Active**.
-6. Repository permissions: **Contents: read and write**, **Pull requests: read and write**, **Issues: read and write** (labels and PR comments), Metadata: read-only. To publish a site, also **Pages: read and write**, **Workflows: read and write**, and **Actions: read and write**. No org or account permissions.
+6. Repository permissions: **Contents: read and write**, **Pull requests: read and write**, **Issues: read and write** (labels and PR comments), Metadata: read-only. To publish a site, also **Pages: read and write**, **Workflows: read and write**, and **Actions: read and write**. To run rules, **Workflows: read and write** and **Checks: read-only**. No org or account permissions.
 7. Where can it be installed: **Any account**.
 8. After creating: note the **App ID**, generate a **private key** (downloads a `.pem`).
 9. Env: `GITHUB_APP_ID`, `GITHUB_APP_SLUG`, `GITHUB_APP_PRIVATE_KEY_B64` (`base64 -i key.pem | tr -d '\n'`).
@@ -103,7 +103,7 @@ TOKEN_A belongs to the admin (whose handle owns `marketing`); TOKEN_B to any oth
 
 ## Reviewing a request
 
-Every write request has a review page at `/orgs/<slug>/requests/<id>` (linked from the approvals queue, the overview, the approval record, and the `review_url` that `brain_propose` and `brain_status` return). It shows the request's provenance, lint warnings, who can approve, and the pull request file by file: each markdown file's frontmatter as a table next to the body rendered as markdown (raw HTML is dropped), and, when the file already existed on the default branch, GitHub's diff inline with old and new line numbers. Supersedes show as a move into `archive/`. Approve and reject work from this page too. Drive-sync requests render the first 25 files and link to the rest on GitHub.
+Every write request has a review page at `/orgs/<slug>/requests/<id>` (linked from the approvals queue, the overview, the approval record, and the `review_url` that `brain_propose` and `brain_status` return). It shows the request's provenance, lint warnings, what each enabled rule's CI job found on the PR's head commit (with the annotated lines), who can approve, and the pull request file by file: each markdown file's frontmatter as a table next to the body rendered as markdown (raw HTML is dropped), and, when the file already existed on the default branch, GitHub's diff inline with old and new line numbers. Supersedes show as a move into `archive/`. Approve and reject work from this page too. Drive-sync requests render the first 25 files and link to the rest on GitHub.
 
 ## Reports
 
@@ -115,9 +115,21 @@ Overview → **Publish with Quartz** (admins). reedright turns on GitHub Pages f
 
 The site is a cache in the RFC's sense: it is rebuilt from the repository alone and nothing reads from it. Public repositories publish for free; private ones need GitHub Pro/Team. The GitHub App needs the Workflows permission to write under `.github/workflows/` (Contents alone is refused), Pages to read the site URL, and Actions for **Rebuild now**. Turning Pages on is an admin-only operation that GitHub does not grant to apps, so the first Publish asks you to set Source to "GitHub Actions" once under the repository's Settings → Pages; a second click records the URL.
 
+## Rules
+
+A rule is an org-wide check on what gets written to the brain, whatever the entry type; it runs alongside the type-specific lint, not instead of it. `/orgs/<slug>/rules` lists the rules reedright knows, and an admin turns each on or off. Turning the first one on commits `.github/workflows/reedright-rules.yml` to the brain repository; turning the last one off removes it. The workflow runs on every pull request to the default branch, one job per rule named `rule: <name>`, so each shows as its own check on the PR. A job checks out the PR, lists the entry files it adds or changes (under `rules/`, `procedures/`, `refs/`, `observations/`; never `archive/` or the top-level files), runs `grep -E` with the rule's pattern over them, emits a line annotation per match, and fails when there is any. The pattern sits in the job's `env`, so the file is readable and editable by hand, though the next toggle rewrites it.
+
+reedright reads those checks back through the Checks API: the request review page shows each enabled rule as not run, running, clear, flagged (with the annotated lines) or inconclusive, with a link to the job. reedright also runs the same pattern itself the moment a proposal is made, before the PR exists, so `brain_propose` returns the flags, the approvals queue shows them without waiting for CI, and the PR carries a `flagged` label. A rule, procedure, or ref that is flagged still waits for its domain owner as usual, with the flags in view. An observation that trips a rule is held open for a domain owner instead of auto-merging; `brain_revise` on it re-runs the rules and merges it once nothing flags it. Approving a held observation is recorded in reedright only, and its file keeps `approved_by: null`, as the RFC requires for observations. The MCP server's instructions list the enabled rules so agents know before they write.
+
+Rules available:
+
+- **Flag dollar figures.** As a matter of course, agent memory stores should not keep data reporting directly, they should call the underlying data warehouse or source for such figures. Attempts to write `$xx.xx` strings of text to the brain will raise a review flag before being accepted. Pattern: `\$ ?[0-9][0-9,]*(\.[0-9]+)?`. Lint already refuses a metric-looking number in a rule or observation; this rule covers procedures and refs too, and gives the repository a check of its own that does not depend on reedright.
+
+The registry is `app/lib/brain/rules.ts`; a new regex rule is one entry there. `tests/rules.test.ts` runs the generated CI step for real in a throwaway git repository and checks it agrees with reedright's own evaluation.
+
 ## Known gaps in v0
 
-- reedright is the lint gate. The RFC wants CI in the brain repo to enforce the schema too; a vendored lint script and workflow are phase 2. Until then, protect `main` so only the app can push.
+- reedright is the lint gate. The RFC wants CI in the brain repo to enforce the schema too; the rules workflow is the first CI reedright manages, but a vendored lint script is still phase 2. Until then, protect `main` so only the app can push.
 - The "use an existing installation" picker on the Connect page trusts any org admin to bind any installation of the app. Fine for a demo; not for multi-tenant production.
 - No webhooks (PR state is fetched live when a page loads), no 60-day unread flagging, no vector search, no OWNERS.yaml editor, no repo auto-creation, SQLite on one volume.
 

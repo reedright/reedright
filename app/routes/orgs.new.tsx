@@ -4,10 +4,11 @@ import { prisma, now } from "~/lib/db.server";
 import { requireUser } from "~/lib/session.server";
 import { HANDLE_RE, SLUG_RE, slugify, str } from "~/lib/validate";
 import { Alert, Button, Card, Input, Label } from "~/components/ui";
+import { Shell } from "~/components/shell";
 
 export async function loader({ request }: Route.LoaderArgs) {
   const user = await requireUser(request);
-  return { suggestedHandle: slugify(user.name.split(/\s+/)[0] ?? "") || "admin" };
+  return { user: { email: user.email }, suggestedHandle: slugify(user.name.split(/\s+/)[0] ?? "") || "admin" };
 }
 
 export async function action({ request }: Route.ActionArgs) {
@@ -29,27 +30,29 @@ export async function action({ request }: Route.ActionArgs) {
 
 export default function NewOrg({ loaderData, actionData }: Route.ComponentProps) {
   return (
-    <main className="mx-auto max-w-md px-6 py-16">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">New organization</h1>
-      <Card>
-        <Form method="post" className="space-y-4">
-          {actionData?.error && <Alert>{actionData.error}</Alert>}
-          <div><Label htmlFor="name">Name</Label><Input id="name" name="name" required placeholder="Acme Corp" /></div>
-          <div>
-            <Label htmlFor="slug">Slug</Label>
-            <Input id="slug" name="slug" placeholder="acmecorp" pattern="[a-z0-9][a-z0-9-]{1,38}" />
-            <p className="mt-1 text-xs text-stone-500">Used in URLs. Leave blank to derive from the name.</p>
-          </div>
-          <div>
-            <Label htmlFor="handle">Your handle in this org</Label>
-            <Input id="handle" name="handle" required defaultValue={loaderData.suggestedHandle} pattern="[a-z0-9][a-z0-9-]{0,38}" />
-            <p className="mt-1 text-xs text-stone-500">
-              This is your identity in the brain's <code>OWNERS.yaml</code>. It is written as <code>author</code> and <code>approved_by</code> in files. Not a git username.
-            </p>
-          </div>
-          <Button type="submit">Create organization</Button>
-        </Form>
-      </Card>
-    </main>
+    <Shell footer={false} user={loaderData.user}>
+      <main className="mx-auto max-w-md px-6 py-16">
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">New organization</h1>
+        <Card>
+          <Form method="post" className="space-y-4">
+            {actionData?.error && <Alert>{actionData.error}</Alert>}
+            <div><Label htmlFor="name">Name</Label><Input id="name" name="name" required placeholder="Acme Corp" /></div>
+            <div>
+              <Label htmlFor="slug">Slug</Label>
+              <Input id="slug" name="slug" placeholder="acmecorp" pattern="[a-z0-9][a-z0-9-]{1,38}" />
+              <p className="mt-1 text-xs text-stone-500">Used in URLs. Leave blank to derive from the name.</p>
+            </div>
+            <div>
+              <Label htmlFor="handle">Your handle in this org</Label>
+              <Input id="handle" name="handle" required defaultValue={loaderData.suggestedHandle} pattern="[a-z0-9][a-z0-9-]{0,38}" />
+              <p className="mt-1 text-xs text-stone-500">
+                This is your identity in the brain's <code>OWNERS.yaml</code>. It is written as <code>author</code> and <code>approved_by</code> in files. Not a git username.
+              </p>
+            </div>
+            <Button type="submit">Create organization</Button>
+          </Form>
+        </Card>
+      </main>
+    </Shell>
   );
 }

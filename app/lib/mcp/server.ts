@@ -11,6 +11,7 @@ import { domainsOwnedBy, parseOwners } from "../brain/owners";
 import { MANIFEST_PATH, OWNERS_PATH } from "../brain/paths";
 import { ProposeError, propose } from "../brain/propose.server";
 import { revise } from "../brain/revise.server";
+import { parseEnabledRules, parseFlags } from "../brain/rules";
 import { ENTRY_TYPES, ENTRY_SLUG_RE, HANDLE_RE } from "../brain/schema";
 
 const text = (value: unknown) => ({ content: [{ type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) }] });
@@ -20,6 +21,7 @@ const SAFE_PATH = /^(?!\/)(?!.*\.\.)[\w./-]+$/;
 
 export function buildServer(ctx: TokenContext): McpServer {
   const { org, membership } = ctx;
+  const enabledRules = parseEnabledRules(org.enabledRules);
   const server = new McpServer(
     { name: "reedright", version: "0.1.0" },
     {
@@ -28,6 +30,9 @@ export function buildServer(ctx: TokenContext): McpServer {
         `Read MANIFEST.md first (brain_manifest), then read entries by path (brain_read). Do not guess paths.`,
         `To add knowledge, call brain_propose. Every write becomes a pull request. Observations merge automatically when lint passes; rules, procedures, and refs wait for a domain owner to approve in reedright.`,
         `Never put a metric in a rule or observation. Propose a ref that points to where the number lives.`,
+        ...(enabledRules.length
+          ? [`Rules this organization has turned on, checked on every write whatever its type: ${enabledRules.map((r) => `"${r.name}" (${r.description})`).join("; ")} A match flags the request for review, and an observation that trips a rule waits for a domain owner instead of merging.`]
+          : []),
         `You are acting as handle "${membership.handle}". That handle is recorded as the author of everything you propose.`,
       ].join(" "),
     },
@@ -132,6 +137,7 @@ export function buildServer(ctx: TokenContext): McpServer {
         "type: observation = something you noticed (auto-merges when lint passes, 300 words max, reviewed within 30 days); rule = policy; procedure = a small testable skill; ref = a pointer to a number or dataset in its system of record (needs system + locator).",
         "Rules, procedures, and refs stay open until a domain owner approves them in reedright.",
         "Lint rejects: metrics in rules/observations, near-duplicates of existing entries, unknown domains, past review dates. On failure you get the errors; fix and call again.",
+        "The organization's rules (listed in the server instructions, if any) are checked as well: a match is returned as flags and marks the request for review, and an observation that trips one is held open for a domain owner instead of merging.",
         "slug: lowercase-hyphenated, becomes the filename. body: markdown without a title (the title is added as the H1). source: a URL, document, system name, or 'reasoning'.",
       ].join(" "),
       inputSchema: {
@@ -163,10 +169,10 @@ export function buildServer(ctx: TokenContext): McpServer {
     {
       title: "Revise your open proposal",
       description: [
-        "Edit one of your own proposals while it is still open (a rule, procedure, or ref waiting for approval). Only the author can revise.",
+        "Edit one of your own proposals while it is still open: a rule, procedure, or ref waiting for approval, or an observation a rule held for review. Only the author can revise.",
         "Pass only the fields you want to change: title, body, source, review_by, and for refs system and locator. Type, domain, path, and author stay fixed.",
         "The file is re-linted and a new commit is pushed to the same pull request, so the approver sees the latest version.",
-        "Observations cannot be revised because they merge immediately; propose a new one with supersedes instead.",
+        "An observation that already merged cannot be revised; propose a new one with supersedes instead. A held observation merges on its own once the revision clears every flag.",
       ].join(" "),
       inputSchema: {
         request_id: z.string().min(1),
@@ -192,7 +198,7 @@ export function buildServer(ctx: TokenContext): McpServer {
     "brain_status",
     {
       title: "Check a write request",
-      description: "Status of a write request you or a teammate proposed: open (awaiting approval), merged, rejected, or closed, with the PR link and any approval record.",
+      description: "Status of a write request you or a teammate proposed: open (awaiting approval), merged, rejected, or closed, with the PR link, what the organization's rules flagged, and any approval record.",
       inputSchema: { request_id: z.string().min(1) },
     },
     async ({ request_id }) => {
@@ -201,6 +207,7 @@ export function buildServer(ctx: TokenContext): McpServer {
       const synced = await syncStatus(await repo(), wr);
       return text({
         request_id: wr.id, status: synced.status, type: wr.type, domain: wr.domain, path: wr.path, author: wr.handle, pr_url: wr.prUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${wr.id}`, created_at: wr.createdAt,
+        flags: parseFlags(wr.flags),
         approvals: wr.approvals.map((a) => ({ decision: a.decision, by: a.approverHandle, at: a.createdAt, note: a.note, ref: `${env.APP_URL}/orgs/${org.slug}/approvals/${a.id}` })),
       });
     },

@@ -4,6 +4,7 @@ import { usePostHog } from "posthog-js/react";
 import type { Route } from "./+types/root";
 import "@fontsource-variable/source-sans-3";
 import "./app.css";
+import { Shell } from "./components/shell";
 import { getUser } from "./lib/session.server";
 
 export function meta() {
@@ -81,9 +82,11 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
     details = import.meta.env.DEV ? (error.stack ?? "") : "";
   }
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <h1 className="text-xl font-semibold">{message}</h1>
-      {details && <pre className="mt-4 overflow-x-auto text-xs text-stone-500">{details}</pre>}
-    </main>
+    <Shell footer={false}>
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="text-2xl font-semibold tracking-tight">{message}</h1>
+        {details && <pre className="mt-4 overflow-x-auto text-xs text-stone-500">{details}</pre>}
+      </main>
+    </Shell>
   );
 }

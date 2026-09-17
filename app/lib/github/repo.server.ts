@@ -24,6 +24,23 @@ export interface PRFile {
   previousPath: string | null;
 }
 
+export interface CheckRun {
+  id: number;
+  name: string;
+  status: string; // queued | in_progress | completed | …
+  conclusion: string | null; // success | failure | neutral | cancelled | skipped | timed_out | action_required | stale
+  htmlUrl: string | null;
+  summary: string | null;
+}
+
+export interface CheckAnnotation {
+  path: string;
+  line: number;
+  level: string;
+  message: string;
+  title: string | null;
+}
+
 export interface PRInfo {
   number: number;
   htmlUrl: string;
@@ -262,6 +279,18 @@ export class BrainRepo {
     await this.okt.request("POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches", { ...this.base, workflow_id: file, ref });
   }
 
+  /** Check runs on a commit, latest per name (GitHub Actions jobs among them). Needs the Checks permission (read). */
+  async listCheckRuns(ref: string): Promise<CheckRun[]> {
+    const { data } = await this.okt.request("GET /repos/{owner}/{repo}/commits/{ref}/check-runs", { ...this.base, ref, per_page: 100 });
+    return data.check_runs.map((c) => ({ id: Number(c.id), name: c.name, status: c.status, conclusion: c.conclusion ?? null, htmlUrl: c.html_url ?? null, summary: c.output?.summary ?? null }));
+  }
+
+  /** The line annotations a check run produced (`::error file=…,line=…::…` in a workflow). Needs Checks (read). */
+  async listCheckAnnotations(checkRunId: number): Promise<CheckAnnotation[]> {
+    const { data } = await this.okt.request("GET /repos/{owner}/{repo}/check-runs/{check_run_id}/annotations", { ...this.base, check_run_id: checkRunId, per_page: 100 });
+    return data.map((a) => ({ path: a.path, line: a.start_line, level: a.annotation_level ?? "notice", message: a.message ?? "", title: a.title ?? null }));
+  }
+
   async listOpenPRs(): Promise<PRInfo[]> {
     const { data } = await this.okt.request("GET /repos/{owner}/{repo}/pulls", { ...this.base, state: "open", per_page: 100 });
     return data.map((d) => ({ number: d.number, htmlUrl: d.html_url, state: d.state as "open" | "closed", merged: Boolean(d.merged_at), headRef: d.head.ref, headSha: d.head.sha, title: d.title }));
@@ -274,4 +303,5 @@ export const REEDRIGHT_LABELS = [
   { name: "type:rule", color: "fbca04", description: "Needs a domain owner's approval" },
   { name: "type:procedure", color: "fbca04", description: "Needs a domain owner's approval" },
   { name: "type:ref", color: "fbca04", description: "Needs a domain owner's approval" },
+  { name: "flagged", color: "d93f0b", description: "A rule the organization turned on matched this proposal; review before merging" },
 ];

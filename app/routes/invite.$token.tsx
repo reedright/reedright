@@ -3,6 +3,7 @@ import type { Route } from "./+types/invite.$token";
 import { prisma, now } from "~/lib/db.server";
 import { getUser, requireUser } from "~/lib/session.server";
 import { Alert, Button, Card } from "~/components/ui";
+import { Shell } from "~/components/shell";
 
 async function loadInvite(token: string) {
   const invite = await prisma().invite.findUnique({ where: { token }, include: { org: true } });
@@ -44,27 +45,29 @@ export async function action({ request, params }: Route.ActionArgs) {
 export default function Invite({ loaderData, actionData }: Route.ComponentProps) {
   const { org, invite, user, already, path } = loaderData;
   return (
-    <main className="mx-auto max-w-md px-6 py-16">
-      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Join {org.name}</h1>
-      <Card>
-        {actionData?.error && <div className="mb-4"><Alert>{actionData.error}</Alert></div>}
-        <p className="text-sm">
-          You were invited as <code className="font-mono">{invite.handle}</code> ({invite.role}). This handle becomes your identity in the brain: it is written as <code>author</code> on what you propose and <code>approved_by</code> on what you approve.
-        </p>
-        {already ? (
-          <p className="mt-4 text-sm">You are already a member. <Link className="underline" to={`/orgs/${org.slug}`}>Open {org.name}</Link>.</p>
-        ) : user ? (
-          <Form method="post" className="mt-4">
-            <p className="mb-3 text-sm text-stone-500">Signed in as {user.email}.</p>
-            <Button type="submit">Accept invite</Button>
-          </Form>
-        ) : (
-          <div className="mt-4 flex gap-3">
-            <Link to={`/signup?next=${encodeURIComponent(path)}`}><Button type="button">Create an account</Button></Link>
-            <Link to={`/login?next=${encodeURIComponent(path)}`}><Button type="button" variant="secondary">Log in</Button></Link>
-          </div>
-        )}
-      </Card>
-    </main>
+    <Shell footer={false} user={user}>
+      <main className="mx-auto max-w-md px-6 py-16">
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Join {org.name}</h1>
+        <Card>
+          {actionData?.error && <div className="mb-4"><Alert>{actionData.error}</Alert></div>}
+          <p className="text-sm">
+            You were invited as <code className="font-mono">{invite.handle}</code> ({invite.role}). This handle becomes your identity in the brain: it is written as <code>author</code> on what you propose and <code>approved_by</code> on what you approve.
+          </p>
+          {already ? (
+            <p className="mt-4 text-sm">You are already a member. <Link className="underline" to={`/orgs/${org.slug}`}>Open {org.name}</Link>.</p>
+          ) : user ? (
+            <Form method="post" className="mt-4">
+              <p className="mb-3 text-sm text-stone-500">Signed in as {user.email}.</p>
+              <Button type="submit">Accept invite</Button>
+            </Form>
+          ) : (
+            <div className="mt-4 flex gap-3">
+              <Link to={`/signup?next=${encodeURIComponent(path)}`}><Button type="button">Create an account</Button></Link>
+              <Link to={`/login?next=${encodeURIComponent(path)}`}><Button type="button" variant="secondary">Log in</Button></Link>
+            </div>
+          )}
+        </Card>
+      </main>
+    </Shell>
   );
 }

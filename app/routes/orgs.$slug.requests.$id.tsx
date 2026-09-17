@@ -8,6 +8,8 @@ import { parsePatch, type Hunk } from "~/lib/brain/diff";
 import { splitFrontmatter } from "~/lib/brain/frontmatter";
 import { parseOwners, resolveApprovers } from "~/lib/brain/owners";
 import { OWNERS_PATH } from "~/lib/brain/paths";
+import { parseEnabledRules, parseFlags, ruleById } from "~/lib/brain/rules";
+import { readRuleChecks, type RuleChecks } from "~/lib/brain/rules.server";
 import { BrainRepo, type PRFile } from "~/lib/github/repo.server";
 import { requireMember } from "~/lib/session.server";
 import { DiffView, MarkdownView } from "~/components/markdown";
@@ -58,11 +60,13 @@ export async function loader({ request, params }: Route.LoaderArgs) {
   let files: FileView[] = [];
   let more = 0;
   let error: string | null = null;
+  let checks: RuleChecks = { checks: [], error: null };
   if (connected) {
     try {
       const repo = await BrainRepo.forOrg(org);
       status = (await syncStatus(repo, wr)).status;
       const pr = await repo.getPR(wr.prNumber);
+      checks = await readRuleChecks(repo, pr.headSha, parseEnabledRules(org.enabledRules));
       const ownersFile = await repo.readFile(OWNERS_PATH);
       if (ownersFile) eligible = resolveApprovers(parseOwners(ownersFile.content), { domain: wr.domain, path: wr.path });
       const prFiles = await repo.listPRFiles(wr.prNumber);
@@ -86,6 +90,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     canApprove: status === "open" && eligible.includes(membership.handle),
     canReject: status === "open" && (eligible.includes(membership.handle) || membership.role === "admin"),
     lint: { errors: lint.errors ?? [], warnings: lint.warnings ?? [] },
+    flags: parseFlags(wr.flags).map((f) => ({ ...f, name: ruleById(f.rule)?.name ?? f.rule })),
+    checks,
     approvals: wr.approvals.map((a) => ({ id: a.id, decision: a.decision, by: a.approverHandle, at: a.createdAt.slice(0, 16).replace("T", " "), note: a.note })),
     files,
     more,
@@ -97,10 +103,14 @@ export async function action({ request, params }: Route.ActionArgs) {
 }
 
 const statusTone = { open: "amber", merged: "green", rejected: "red", closed: "neutral" } as const;
-const fileTone = { added: "green", removed: "red", modified: "amber", renamed: "blue", copied: "blue", changed: "amber", unchanged: "neutral" } as const;
+// Amber is waiting (a running job, or one that could not say), reed is clear, red is flagged; everything else is neutral.
+const checkTone = { "not-run": "neutral", pending: "amber", clear: "green", flagged: "red", inconclusive: "amber" } as const;
+const checkLabel = { "not-run": "not run", pending: "running", clear: "clear", flagged: "flagged", inconclusive: "inconclusive" } as const;
+const fileTone = { added: "green", removed: "red", modified: "amber", renamed: "neutral", copied: "neutral", changed: "amber", unchanged: "neutral" } as const;
 
 export default function RequestReview({ loaderData, actionData }: Route.ComponentProps) {
-  const { orgSlug, me, connected, error, request: r, eligible, canApprove, canReject, lint, approvals, files, more } = loaderData;
+  const { orgSlug, me, connected, error, request: r, eligible, canApprove, canReject, lint, flags, checks, approvals, files, more } = loaderData;
+  const heldObservation = r.type === "observation" && r.status === "open" && flags.length > 0;
   const msg = actionData as ApprovalActionData | undefined;
   return (
     <Page title={<span><Badge tone="amber">{r.type}</Badge> <Badge>{r.domain}</Badge> {r.title}</span>} aside={<Link className="text-sm underline" to={`/orgs/${orgSlug}/approvals`}>All approvals</Link>}>
@@ -146,6 +156,33 @@ export default function RequestReview({ loaderData, actionData }: Route.Componen
             {lint.warnings.map((w) => <div key={w.rule} className="text-amber-700 dark:text-amber-400">lint warning · {w.rule}: {w.message}</div>)}
           </div>
         )}
+        {(checks.checks.length > 0 || checks.error || flags.length > 0) && (
+          <div className="mt-3 border-t border-stone-100 pt-3 text-xs dark:border-stone-800">
+            <div className="mb-1 font-medium text-stone-500">
+              Rules{heldObservation && <span className="ml-2 font-normal text-amber-700 dark:text-amber-400">this observation is held for review because a rule flagged it; approving merges it, or the author revises it</span>}
+            </div>
+            {checks.error && <div className="mb-1 text-amber-700 dark:text-amber-400">{checks.error}</div>}
+            {checks.checks.map((c) => {
+              const own = flags.filter((f) => f.rule === c.rule);
+              const hits = c.hits.length ? c.hits : own;
+              return (
+                <div key={c.rule} className="py-0.5">
+                  <Badge tone={checkTone[c.state]}>{checkLabel[c.state]}{c.conclusion ? ` (${c.conclusion})` : ""}</Badge> {c.name}
+                  {c.url && <> · <a className="underline" href={c.url} target="_blank" rel="noreferrer">job on GitHub</a></>}
+                  {c.state !== "flagged" && own.length > 0 && <span className="text-amber-700 dark:text-amber-400"> · flagged by reedright when proposed</span>}
+                  {hits.length > 0 && (
+                    <ul className="mt-0.5 list-disc pl-5">
+                      {hits.map((h, i) => <li key={i}><span className="font-mono">{h.path}:{h.line}</span> · <code className="font-mono">{h.match}</code></li>)}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+            {flags.filter((f) => !checks.checks.some((c) => c.rule === f.rule)).map((f, i) => (
+              <div key={`own-${i}`} className="py-0.5 text-amber-700 dark:text-amber-400">flagged when proposed · {f.name}: <span className="font-mono">{f.path}:{f.line}</span> · <code className="font-mono">{f.match}</code></div>
+            ))}
+          </div>
+        )}
         {approvals.length > 0 && (
           <div className="mt-3 border-t border-stone-100 pt-3 text-xs dark:border-stone-800">
             {approvals.map((a) => (
@@ -164,7 +201,7 @@ export default function RequestReview({ loaderData, actionData }: Route.Componen
             <Badge tone={fileTone[f.status] ?? "neutral"}>{f.status === "added" ? "new" : f.status}</Badge>
             <span className="font-mono text-xs break-all">{f.path}</span>
             {f.previousPath && <span className="text-xs text-stone-500">from <span className="font-mono">{f.previousPath}</span></span>}
-            <span className="ml-auto text-xs text-stone-500"><span className="text-green-700 dark:text-green-400">+{f.additions}</span> <span className="text-red-700 dark:text-red-400">−{f.deletions}</span></span>
+            <span className="ml-auto text-xs text-stone-500"><span className="text-reed dark:text-reed-light">+{f.additions}</span> <span className="text-red-700 dark:text-red-400">−{f.deletions}</span></span>
           </div>
           {f.note && <p className="mb-3 text-xs text-stone-500">{f.note}</p>}
           {f.hunks && f.hunks.length > 0 && (

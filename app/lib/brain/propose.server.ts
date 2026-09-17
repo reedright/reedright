@@ -9,6 +9,7 @@ import { lint, type LintReport } from "./lint";
 import { regenerateManifest } from "./manifest.server";
 import { parseOwners, resolveApprovers } from "./owners";
 import { OWNERS_PATH, archivePath, entryPath } from "./paths";
+import { describeHit, evaluateRules, parseEnabledRules, type RuleHit } from "./rules";
 import { DEFAULT_REVIEW_DAYS, NEEDS_APPROVAL, TYPE_DIR, addDays, todayUTC, type EntryType, type Frontmatter } from "./schema";
 
 export interface ProposeInput {
@@ -35,6 +36,8 @@ export interface ProposeResult {
   status: "open" | "merged";
   approvers: string[];
   warnings: string[];
+  /** What the org's rules matched. A flagged observation is held for review instead of merging. */
+  flags: RuleHit[];
   message: string;
 }
 
@@ -49,8 +52,10 @@ export class ProposeError extends Error {
 
 const shortId = () => randomBytes(4).toString("hex");
 
-function prBody(input: { handle: string; fm: Frontmatter; path: string; approvers: string[]; report: LintReport; orgSlug: string; requestId: string }): string {
-  const { handle, fm, path, approvers, report, orgSlug, requestId } = input;
+function prBody(input: { handle: string; fm: Frontmatter; path: string; approvers: string[]; report: LintReport; flags: RuleHit[]; orgSlug: string; requestId: string }): string {
+  const { handle, fm, path, approvers, report, flags, orgSlug, requestId } = input;
+  const held = !NEEDS_APPROVAL[fm.type] && flags.length > 0;
+  const needsReview = NEEDS_APPROVAL[fm.type] || held;
   const rows: Array<[string, string]> = [
     ["type", fm.type],
     ["domain", fm.domain],
@@ -61,7 +66,7 @@ function prBody(input: { handle: string; fm: Frontmatter; path: string; approver
     ["review_by", fm.review_by],
   ];
   if (fm.supersedes) rows.push(["supersedes", `\`${fm.supersedes}\` (moved to archive/)`]);
-  if (NEEDS_APPROVAL[fm.type]) rows.push(["can approve", approvers.map((a) => `\`${a}\``).join(", ") || "nobody (fix OWNERS.yaml)"]);
+  if (needsReview) rows.push(["can approve", approvers.map((a) => `\`${a}\``).join(", ") || "nobody (fix OWNERS.yaml)"]);
   const lines = [
     `Proposed by **${handle}** via reedright.`,
     "",
@@ -71,10 +76,13 @@ function prBody(input: { handle: string; fm: Frontmatter; path: string; approver
     "",
     `Lint: passed${report.warnings.length ? ` with ${report.warnings.length} warning(s)` : ""}.`,
     ...report.warnings.map((w) => `- ${w.rule}: ${w.message}`),
+    ...(flags.length ? ["", `Review flags (${flags.length}), from the rules this organization turned on:`, ...flags.map((f) => `- ${describeHit(f)}`)] : []),
     "",
-    NEEDS_APPROVAL[fm.type]
-      ? `Approve or reject at ${env.APP_URL}/orgs/${orgSlug}/approvals (request \`${requestId}\`). The record of approval is written into the file's frontmatter; this PR is not the record.`
-      : "Observations merge automatically when lint passes (RFC §3).",
+    held
+      ? `This observation is held for review because a rule flagged it. An owner of ${fm.domain} approves or rejects at ${env.APP_URL}/orgs/${orgSlug}/approvals (request \`${requestId}\`); the approval is recorded in reedright and the file keeps approved_by null, as an observation must.`
+      : needsReview
+        ? `Approve or reject at ${env.APP_URL}/orgs/${orgSlug}/approvals (request \`${requestId}\`). The record of approval is written into the file's frontmatter; this PR is not the record.`
+        : "Observations merge automatically when lint passes (RFC §3).",
   ];
   return lines.join("\n");
 }
@@ -140,15 +148,19 @@ export async function propose(ctx: TokenContext, input: ProposeInput): Promise<P
   const commitTitle = `${input.type}(${input.domain}): ${input.title.trim()}`;
   await repo.commit({ branch, message: `${commitTitle}\n\nAuthor: ${handle} (reedright)\nRun: ${run}`, writes, deletes });
 
-  const approvers = NEEDS_APPROVAL[input.type] ? resolveApprovers(owners, { domain: input.domain, path }) : [];
+  // The org's rules, run here on the same content CI will see, so a flag is known before the PR exists.
+  const flags = evaluateRules(parseEnabledRules(org.enabledRules), writes);
+  const held = !NEEDS_APPROVAL[input.type] && flags.length > 0;
+  const needsReview = NEEDS_APPROVAL[input.type] || held;
+  const approvers = needsReview ? resolveApprovers(owners, { domain: input.domain, path }) : [];
   const requestId = `wr_${shortId()}${shortId()}`;
   await repo.ensureLabels(REEDRIGHT_LABELS);
   const pr = await repo.openPR({
     title: `[${input.type}/${input.domain}] ${input.title.trim()}`,
-    body: prBody({ handle, fm, path, approvers, report, orgSlug: org.slug, requestId }),
+    body: prBody({ handle, fm, path, approvers, report, flags, orgSlug: org.slug, requestId }),
     head: branch,
   });
-  await repo.addLabels(pr.number, ["reedright", `type:${input.type}`]);
+  await repo.addLabels(pr.number, ["reedright", `type:${input.type}`, ...(flags.length ? ["flagged"] : [])]);
 
   const ts = now();
   await prisma().writeRequest.create({
@@ -156,22 +168,27 @@ export async function propose(ctx: TokenContext, input: ProposeInput): Promise<P
       id: requestId, orgId: org.id, userId: user.id, handle, run, type: input.type, domain: input.domain, title: input.title.trim(),
       path, branch, prNumber: pr.number, prUrl: pr.htmlUrl, status: "open",
       lintReport: JSON.stringify({ errors: report.errors, warnings: report.warnings, similarity: report.similarity }),
+      flags: flags.length ? JSON.stringify(flags) : null,
       createdAt: ts, updatedAt: ts,
     },
   });
 
   const warnings = report.warnings.map((w) => `${w.rule}: ${w.message}`);
-  if (!NEEDS_APPROVAL[input.type]) {
+  if (!needsReview) {
     await repo.mergePR(pr.number, commitTitle, `Auto-merged by reedright: observation passed lint.\n\nAuthor: ${handle}\nRun: ${run}`);
     await regenerateManifest(repo);
     await repo.deleteBranch(branch);
     await prisma().writeRequest.update({ where: { id: requestId }, data: { status: "merged", updatedAt: now() } });
-    return { request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${requestId}`, status: "merged", approvers: [], warnings, message: `Observation merged to ${repo.defaultBranch} as ${path}. MANIFEST.md updated.` };
+    return { request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${requestId}`, status: "merged", approvers: [], warnings, flags: [], message: `Observation merged to ${repo.defaultBranch} as ${path}. MANIFEST.md updated.` };
   }
+  const flagged = flags.map(describeHit).join("; ");
+  const who = approvers.join(", ") || "nobody listed in OWNERS.yaml";
   return {
-    request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${requestId}`, status: "open", approvers, warnings,
-    message: approvers.length
-      ? `Pull request opened. A ${input.type} needs approval from an owner of ${input.domain}: ${approvers.join(", ")}. They approve at ${env.APP_URL}/orgs/${org.slug}/approvals.`
-      : `Pull request opened, but OWNERS.yaml lists no owner for ${input.domain}. An admin must fix OWNERS.yaml before anyone can approve.`,
+    request_id: requestId, path, pr_number: pr.number, pr_url: pr.htmlUrl, review_url: `${env.APP_URL}/orgs/${org.slug}/requests/${requestId}`, status: "open", approvers, warnings, flags,
+    message: held
+      ? `Observation held for review, not merged: ${flagged}. An owner of ${input.domain} (${who}) approves or rejects at ${env.APP_URL}/orgs/${org.slug}/approvals, or call brain_revise to fix it; it merges on its own once no rule flags it.`
+      : (approvers.length
+          ? `Pull request opened. A ${input.type} needs approval from an owner of ${input.domain}: ${approvers.join(", ")}. They approve at ${env.APP_URL}/orgs/${org.slug}/approvals.`
+          : `Pull request opened, but OWNERS.yaml lists no owner for ${input.domain}. An admin must fix OWNERS.yaml before anyone can approve.`) + (flags.length ? ` Flagged for review: ${flagged}.` : ""),
   };
 }

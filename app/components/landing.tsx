@@ -3,9 +3,9 @@
 // pull request, merge, lint, frontmatter, YAML, MCP, token, git, GitHub.
 import { Link } from "react-router";
 import { Badge } from "./ui";
-import { Lockup, Mark } from "./mark";
+import { Lockup } from "./mark";
 import { Art } from "./art";
-import { ThemeToggle } from "./theme";
+import { Footer } from "./shell";
 
 const primary = "inline-flex items-center justify-center rounded-md bg-stone-900 px-4 py-2.5 text-base font-semibold text-white hover:bg-stone-700 dark:bg-stone-100 dark:text-stone-900 dark:hover:bg-stone-300";
 const secondary = "inline-flex items-center justify-center rounded-md border border-stone-300 bg-white px-4 py-2.5 text-base font-semibold text-stone-900 hover:bg-stone-100 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:hover:bg-stone-800";
@@ -112,22 +112,10 @@ export function Landing() {
         </section>
       </main>
 
-      <footer>
-        <Art name="reeds" preserveAspectRatio="xMidYMax slice" className="block h-20 w-full text-stone-900 opacity-30 md:h-28 dark:text-stone-100 dark:opacity-35" />
-        <div className="border-t border-stone-200 dark:border-stone-800"><div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-stone-500">
-          <div className="flex items-center gap-3">
-            <Mark className="h-8" />
-            <span>Read. Write. Right.</span>
-          </div>
-          <nav className="flex flex-wrap gap-5">
-            <Link className="hover:underline" to="/signup">Sign up</Link>
-            <Link className="hover:underline" to="/login">Log in</Link>
-            <a className="hover:underline" href="https://github.com/reedright/reedright" target="_blank" rel="noreferrer">Source code</a>
-            <span>Apache 2.0</span>
-            <ThemeToggle />
-          </nav>
-        </div></div>
-      </footer>
+      <Footer>
+        <Link className="hover:underline" to="/signup">Sign up</Link>
+        <Link className="hover:underline" to="/login">Log in</Link>
+      </Footer>
     </div>
   );
 }
@@ -194,7 +182,11 @@ const faq: Array<[string, string]> = [
   ["Can I leave?", "Any time. Uninstall reedright and the files stay in your repository, readable without us."],
 ];
 
-/** Tools on the left, the brain on the right, the owner's gate on the add path. Reads in reed green, adds dashed in ink. */
+/**
+ * Tools on the left, the brain on the right, the owner's gate on the add path. Reads in reed green, adds dashed in ink.
+ * On load it draws itself in the order of the headline (reads, adds, the owner's check, the keep), then the add lines
+ * drift toward the owner. The timing and the reduced-motion switch live in app.css under .hub-draw and .hub-drift.
+ */
 function Hub() {
   const tools = [
     { label: "Claude", cy: 60 },
@@ -202,31 +194,46 @@ function Hub() {
     { label: "Cursor", cy: 220 },
     { label: "Your agent", cy: 300 },
   ];
+  const step = 0.08;
+  const reads = { at: 0.2, over: 0.7 };
+  const adds = { at: reads.at + reads.over + 0.1, over: 0.8 };
+  const check = { at: adds.at + 3 * step + adds.over - 0.05, over: 0.3 };
+  const keep = { at: check.at + check.over - 0.05, over: 0.35 };
   return (
     <svg viewBox="0 0 560 350" className="h-auto w-full" role="img" aria-labelledby="hub-title">
       <title id="hub-title">Claude, ChatGPT, Cursor, and your agent read one brain. What they add passes the owner before it is kept.</title>
+      <defs>
+        <marker id="hub-read" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor" stroke="none" />
+        </marker>
+        <marker id="hub-add" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor" stroke="none" />
+        </marker>
+      </defs>
       {/* reads: brain to tools */}
       <g className="text-reed dark:text-reed-light" fill="none" stroke="currentColor" strokeWidth="2">
-        <defs>
-          <marker id="hub-read" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0 0 L10 5 L0 10 z" fill="currentColor" stroke="none" />
-          </marker>
-        </defs>
-        {tools.map((t) => (
-          <path key={t.label} d={`M340 205 C 260 205, 220 ${t.cy + 7}, 148 ${t.cy + 7}`} markerEnd="url(#hub-read)" />
-        ))}
+        {tools.map((t, i) => {
+          const d = `M340 205 C 260 205, 220 ${t.cy + 7}, 148 ${t.cy + 7}`;
+          return (
+            <Drawn key={t.label} id={`hub-read-${i}`} d={d} at={reads.at + i * step} over={reads.over}>
+              <path d={d} markerEnd="url(#hub-read)" />
+            </Drawn>
+          );
+        })}
       </g>
       {/* adds: tools to the gate, gate to the brain */}
       <g className="text-stone-700 dark:text-stone-300" fill="none" stroke="currentColor" strokeWidth="2">
-        <defs>
-          <marker id="hub-add" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-            <path d="M0 0 L10 5 L0 10 z" fill="currentColor" stroke="none" />
-          </marker>
-        </defs>
-        {tools.map((t) => (
-          <path key={t.label} d={`M140 ${t.cy - 7} C 240 ${t.cy - 7}, 300 44, 389 44`} strokeDasharray="5 5" markerEnd="url(#hub-add)" />
-        ))}
-        <path d="M415 66 V 132" markerEnd="url(#hub-add)" />
+        {tools.map((t, i) => {
+          const d = `M140 ${t.cy - 7} C 240 ${t.cy - 7}, 300 44, 389 44`;
+          return (
+            <Drawn key={t.label} id={`hub-add-${i}`} d={d} at={adds.at + i * step} over={adds.over}>
+              <path d={d} strokeDasharray="5 5" markerEnd="url(#hub-add)" className="hub-drift" />
+            </Drawn>
+          );
+        })}
+        <Drawn id="hub-keep" d="M415 66 V 132" at={keep.at} over={keep.over}>
+          <path d="M415 66 V 132" markerEnd="url(#hub-add)" />
+        </Drawn>
       </g>
       {/* tools */}
       <g className="text-stone-900 dark:text-stone-100" fontSize="15">
@@ -240,7 +247,9 @@ function Hub() {
       {/* the owner's gate */}
       <g className="text-stone-900 dark:text-stone-100">
         <circle cx="415" cy="44" r="20" className="fill-white stroke-current dark:fill-stone-900" strokeWidth="1.5" />
-        <path d="M405 45 l7 7 l13 -14" className="stroke-reed dark:stroke-reed-light" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <Drawn id="hub-check" d="M405 45 l7 7 l13 -14" at={check.at} over={check.over}>
+          <path d="M405 45 l7 7 l13 -14" className="stroke-reed dark:stroke-reed-light" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        </Drawn>
         <text x="442" y="49" fontSize="13" className="fill-stone-500">the owner approves</text>
       </g>
       {/* the brain: three sheets */}
@@ -261,6 +270,22 @@ function Hub() {
         <text x="244" y="335">approved by the owner, then kept</text>
       </g>
     </svg>
+  );
+}
+
+/**
+ * Reveals its children along `d` as if a pen drew them, starting `at` seconds in and taking `over` seconds. The mask
+ * is a wide stroke on the same path whose dash offset animates (app.css, .hub-draw), so whatever sits on the path,
+ * including a dashed line and its arrowhead, appears from start to end.
+ */
+function Drawn({ id, d, at, over, children }: { id: string; d: string; at: number; over: number; children: React.ReactNode }) {
+  return (
+    <>
+      <mask id={id} maskUnits="userSpaceOnUse" x="0" y="0" width="560" height="350">
+        <path d={d} pathLength="100" fill="none" stroke="#fff" strokeWidth="18" strokeLinecap="round" className="hub-draw" style={{ animationDelay: `${at}s`, animationDuration: `${over}s` }} />
+      </mask>
+      <g mask={`url(#${id})`}>{children}</g>
+    </>
   );
 }
 

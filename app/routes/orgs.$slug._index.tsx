@@ -20,7 +20,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
     site: { url: org.siteUrl, publishedAt: org.sitePublishedAt?.slice(0, 10) ?? null, actionsUrl: `https://github.com/${org.repoOwner}/${org.repoName}/actions/workflows/reedright-site.yml` },
     isAdmin: membership.role === "admin",
     counts: { members, open, merged, rejected },
-    recent: recent.map((r) => ({ id: r.id, type: r.type, domain: r.domain, title: r.title, handle: r.handle, status: r.status, prUrl: r.prUrl, createdAt: r.createdAt.slice(0, 10) })),
+    recent: recent.map((r) => ({ id: r.id, type: r.type, domain: r.domain, title: r.title, handle: r.handle, status: r.status, prUrl: r.prUrl, flagged: Boolean(r.flags), createdAt: r.createdAt.slice(0, 10) })),
   };
 }
 
@@ -126,7 +126,7 @@ export default function Overview({ loaderData, actionData }: Route.ComponentProp
               {recent.map((r) => (
                 <tr key={r.id} className="border-t border-stone-100 dark:border-stone-800">
                   <td className="py-2 pr-3 whitespace-nowrap text-stone-500">{r.createdAt}</td>
-                  <td className="py-2 pr-3"><Badge>{r.type}/{r.domain}</Badge></td>
+                  <td className="py-2 pr-3"><Badge>{r.type}/{r.domain}</Badge>{r.flagged && <> <Badge tone="red">flagged</Badge></>}</td>
                   <td className="py-2 pr-3"><Link className="underline" to={`/orgs/${org.slug}/requests/${r.id}`}>{r.title}</Link></td>
                   <td className="py-2 pr-3 font-mono text-xs">{r.handle}</td>
                   <td className="py-2 text-right"><Badge tone={tone[r.status as keyof typeof tone] ?? "neutral"}>{r.status}</Badge></td>

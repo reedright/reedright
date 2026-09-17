@@ -16,6 +16,18 @@ html[data-theme="light"] { color-scheme: light; }
 html[data-theme="dark"] { color-scheme: dark; }
 body { @apply bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100; }
 
+/* The hero hub draws itself once, in the order of the headline: reads, then adds, then the owner's check, then the
+   keep. Each arrow is revealed by a mask stroke drawn along its own path, so the arrowhead arrives with the line.
+   Afterwards the dashed add lines drift toward the owner. The hidden state lives only inside the keyframes: if the
+   animation never runs (reduced motion, or a browser that will not animate mask content) the diagram is complete. */
+.hub-draw { stroke-dasharray: 100 200; animation: hub-draw 0.7s ease-in-out both; }
+.hub-drift { animation: hub-drift 2.4s linear infinite; }
+@keyframes hub-draw { from { stroke-dashoffset: 110; } to { stroke-dashoffset: 0; } }
+@keyframes hub-drift { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -10; } }
+@media (prefers-reduced-motion: reduce) {
+  .hub-draw, .hub-drift { animation: none; }
+}
+
 /* Rendered markdown on the request review page. */
 .markdown { @apply text-sm leading-relaxed; }
 .markdown > * + * { @apply mt-3; }

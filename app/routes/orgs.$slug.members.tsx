@@ -70,7 +70,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
                 <td className="py-2 font-mono">{m.handle}</td>
                 <td className="py-2">{m.name}</td>
                 <td className="py-2 text-stone-500">{m.email}</td>
-                <td className="py-2"><Badge tone={m.role === "admin" ? "blue" : "neutral"}>{m.role}</Badge></td>
+                <td className="py-2"><Badge tone={m.role === "admin" ? "ink" : "neutral"}>{m.role}</Badge></td>
                 <td className="py-2 text-right">
                   {isAdmin && m.userId !== me && (
                     <Form method="post"><input type="hidden" name="intent" value="remove-member" /><input type="hidden" name="userId" value={m.userId} /><Button variant="danger" type="submit">Remove</Button></Form>
@@ -104,7 +104,7 @@ export default function Members({ loaderData, actionData }: Route.ComponentProps
                 {invites.map((i) => (
                   <li key={i.id} className="text-sm">
                     <div className="flex items-center justify-between gap-3">
-                      <span>{i.email} as <Badge>{i.handle}</Badge> <Badge tone={i.role === "admin" ? "blue" : "neutral"}>{i.role}</Badge> <span className="text-stone-500">expires {i.expiresAt}</span></span>
+                      <span>{i.email} as <Badge>{i.handle}</Badge> <Badge tone={i.role === "admin" ? "ink" : "neutral"}>{i.role}</Badge> <span className="text-stone-500">expires {i.expiresAt}</span></span>
                       <Form method="post"><input type="hidden" name="intent" value="revoke-invite" /><input type="hidden" name="id" value={i.id} /><Button variant="secondary" type="submit">Revoke</Button></Form>
                     </div>
                     <Code>{i.url}</Code>

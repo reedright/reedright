@@ -37,6 +37,7 @@ model Org {
   similarityThreshold  Float   @default(0.9) @map("similarity_threshold")
   siteUrl              String? @map("site_url")
   sitePublishedAt      String? @map("site_published_at")
+  enabledRules         String  @default("[]") @map("enabled_rules") // JSON string[] of rule ids (app/lib/brain/rules.ts)
   createdAt            String  @map("created_at")
 
   memberships   Membership[]
@@ -128,6 +129,7 @@ model WriteRequest {
   kind       String @default("entry") // entry | sync
   paths      String? // JSON string[]: every entry file in the PR (sync requests)
   summary    String? // JSON: sync statistics
+  flags      String? // JSON RuleHit[]: what the org's rules matched when this was proposed; null when nothing
   createdAt  String @map("created_at")
   updatedAt  String @map("updated_at")
 

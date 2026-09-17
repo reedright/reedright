@@ -13,8 +13,9 @@ export function MarkdownView({ source }: { source: string }) {
   );
 }
 
+// Added lines take the reed tint, removed lines red, as approved and rejected do elsewhere in the app.
 const rowStyle = {
-  add: "bg-green-50 text-green-900 dark:bg-green-950/60 dark:text-green-200",
+  add: "bg-reed/10 dark:bg-reed-light/10",
   del: "bg-red-50 text-red-900 dark:bg-red-950/60 dark:text-red-200",
   context: "",
 } as const;
@@ -37,7 +38,7 @@ export function DiffView({ hunks }: { hunks: Hunk[] }) {
 function HunkRows({ hunk }: { hunk: Hunk }) {
   return (
     <>
-      <tr className="bg-sky-50 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300">
+      <tr className="bg-stone-100 text-stone-500 dark:bg-stone-800/60 dark:text-stone-400">
         <td colSpan={3} className="px-3 py-1 whitespace-pre">{hunk.header}</td>
       </tr>
       {hunk.lines.map((l, i) => (

@@ -5,6 +5,7 @@ import { handleApprovalAction } from "~/lib/brain/approval-action.server";
 import { syncStatus } from "~/lib/brain/approve.server";
 import { parseOwners, resolveApprovers } from "~/lib/brain/owners";
 import { OWNERS_PATH } from "~/lib/brain/paths";
+import { describeHit, parseFlags } from "~/lib/brain/rules";
 import { BrainRepo } from "~/lib/github/repo.server";
 import { requireMember } from "~/lib/session.server";
 import { Alert, Badge, Card, Empty, Input, Page, SubmitButton } from "~/components/ui";
@@ -28,7 +29,8 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       error = (e as Error).message;
     }
   }
-  const decided = await prisma().writeRequest.findMany({ where: { orgId: org.id, status: { not: "open" }, type: { not: "observation" } }, orderBy: { updatedAt: "desc" }, take: 20, include: { approvals: true } });
+  // Observations show up here only when a rule held one and someone decided it.
+  const decided = await prisma().writeRequest.findMany({ where: { orgId: org.id, status: { not: "open" }, OR: [{ type: { not: "observation" } }, { approvals: { some: {} } }] }, orderBy: { updatedAt: "desc" }, take: 20, include: { approvals: true } });
   return {
     connected,
     orgSlug: org.slug,
@@ -39,7 +41,7 @@ export async function loader({ request, params }: Route.LoaderArgs) {
       const eligible = eligibleFor.get(wr.id) ?? [];
       const lint = JSON.parse(wr.lintReport) as { warnings?: Array<{ rule: string; message: string }> };
       const count = wr.kind === "sync" && wr.paths ? (JSON.parse(wr.paths) as string[]).length : 1;
-      return { id: wr.id, kind: wr.kind, count, type: wr.type, domain: wr.domain, title: wr.title, path: wr.path, handle: wr.handle, run: wr.run, prUrl: wr.prUrl, createdAt: wr.createdAt.slice(0, 16).replace("T", " "), eligible, canApprove: eligible.includes(membership.handle), warnings: lint.warnings ?? [] };
+      return { id: wr.id, kind: wr.kind, count, type: wr.type, domain: wr.domain, title: wr.title, path: wr.path, handle: wr.handle, run: wr.run, prUrl: wr.prUrl, createdAt: wr.createdAt.slice(0, 16).replace("T", " "), eligible, canApprove: eligible.includes(membership.handle), warnings: lint.warnings ?? [], flags: parseFlags(wr.flags).map(describeHit) };
     }),
     decided: decided.map((wr) => ({ id: wr.id, type: wr.type, domain: wr.domain, title: wr.title, handle: wr.handle, status: wr.status, prUrl: wr.prUrl, updatedAt: wr.updatedAt.slice(0, 10), approvals: wr.approvals.map((a) => ({ id: a.id, decision: a.decision, by: a.approverHandle })) })),
   };
@@ -68,7 +70,7 @@ export default function Approvals({ loaderData, actionData }: Route.ComponentPro
         </div>
       )}
       <p className="mb-4 text-sm text-stone-600 dark:text-stone-400">
-        Rules, procedures, and refs wait here until an owner of their domain approves. You are <code className="font-mono">{handle}</code>. Approving writes your handle, the time, and a link to this record into the file, then merges.
+        Rules, procedures, and refs wait here until an owner of their domain approves, as does an observation that one of the organization's rules flagged. You are <code className="font-mono">{handle}</code>. Approving writes your handle, the time, and a link to this record into the file (an observation's file stays unstamped; the record lives here), then merges.
       </p>
       {open.length === 0 ? (
         <Card><Empty>Nothing is waiting for approval.</Empty></Card>
@@ -79,12 +81,13 @@ export default function Approvals({ loaderData, actionData }: Route.ComponentPro
               <Card>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <div className="flex items-center gap-2"><Badge tone="amber">{wr.type}</Badge><Badge>{wr.domain}</Badge>{wr.kind === "sync" && <Badge tone="blue">drive sync · {wr.count} file{wr.count === 1 ? "" : "s"}</Badge>}<Link className="font-medium underline" to={`/orgs/${loaderData.orgSlug}/requests/${wr.id}`}>{wr.title}</Link></div>
+                    <div className="flex items-center gap-2"><Badge tone="amber">{wr.type}</Badge><Badge>{wr.domain}</Badge>{wr.kind === "sync" && <Badge>drive sync · {wr.count} file{wr.count === 1 ? "" : "s"}</Badge>}{wr.flags.length > 0 && <Badge tone="red">{wr.type === "observation" ? "held by a rule" : "flagged"}</Badge>}<Link className="font-medium underline" to={`/orgs/${loaderData.orgSlug}/requests/${wr.id}`}>{wr.title}</Link></div>
                     <p className="mt-1 text-xs text-stone-500">
                       by <span className="font-mono">{wr.handle}</span> · run <span className="font-mono">{wr.run}</span> · {wr.createdAt} · <Link className="underline" to={`/orgs/${loaderData.orgSlug}/requests/${wr.id}`}>review</Link> · <a className="underline" href={wr.prUrl} target="_blank" rel="noreferrer">GitHub</a>
                     </p>
                     <p className="mt-1 font-mono text-xs text-stone-500">{wr.kind === "sync" ? `refs/${wr.domain}/ (${wr.count} files, listed on the PR)` : wr.path}</p>
                     {wr.warnings.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-amber-700 dark:text-amber-400">{wr.warnings.map((w) => <li key={w.rule}>{w.rule}: {w.message}</li>)}</ul>}
+                    {wr.flags.length > 0 && <ul className="mt-2 list-disc pl-5 text-xs text-red-700 dark:text-red-400">{wr.flags.map((f) => <li key={f}>{f}</li>)}</ul>}
                     <p className="mt-2 text-xs text-stone-500">Can approve: {wr.eligible.length ? wr.eligible.map((h) => <Badge key={h} tone={h === handle ? "green" : "neutral"}>{h}</Badge>) : "nobody listed in OWNERS.yaml"}</p>
                   </div>
                   <Form method="post" className="flex flex-col items-end gap-2">

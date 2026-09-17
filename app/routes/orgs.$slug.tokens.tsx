@@ -46,7 +46,7 @@ export default function Tokens({ loaderData, actionData }: Route.ComponentProps)
         Each token identifies you (<code className="font-mono">{handle}</code>) to the MCP server. Give one to each agent or machine. Revoke it when done.
       </p>
       {minted && (
-        <Card className="mb-4 border-green-300 dark:border-green-900">
+        <Card className="mb-4 border-reed/50 dark:border-reed-light/40">
           <Alert kind="success">Token "{minted.name}" created. This is the only time it is shown.</Alert>
           <h3 className="mt-4 text-sm font-medium">1. Add the server to Claude Code</h3>
           <Code>{claudeMcpAddCommand(appUrl, minted.plaintext)}</Code>
