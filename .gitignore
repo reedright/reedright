@@ -13,3 +13,7 @@ skills-lock.json
 # never commit Google service account keys
 *service-account*.json
 *.iam.gserviceaccount.com*.json
+
+# Zodiak (Fontshare, ITF Free Font License): self-hosting is allowed, redistribution through a public repository is not.
+# scripts/fonts.mjs fetches it from Fontshare at the start of pnpm dev and pnpm build (or run pnpm fonts).
+public/fonts/Zodiak-Variable.woff2

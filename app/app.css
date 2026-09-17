@@ -4,11 +4,65 @@
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
 @theme {
-  --font-sans: "Source Sans 3 Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Body: Fira Sans, self-hosted from @fontsource (root.tsx). Headings on the landing page only: Zodiak, below. */
+  --font-sans: "Fira Sans", "Fira Sans Fallback", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-slab: "Zodiak", "Zodiak Fallback", Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   /* The one accent: reed green. It is also the "approved" color. Paper and ink are stone-50/950 and stone-900/100. */
   --color-reed: #4a7a3d;
   --color-reed-light: #8fbf7a;
+}
+
+/* Zodiak, the landing page's heading face: one variable file from Fontshare (ITF Free Font License, which allows
+   self-hosting but not redistribution), fetched into public/fonts by scripts/fonts.mjs rather than kept in git. The
+   browser fetches it only when a heading asks for it. Until then "Zodiak Fallback" stands in: Georgia Bold, sized per
+   weight so lines wrap where Zodiak's will, with the vertical metrics (990/280/90 on 1000) scaled to match. The ratios
+   were measured in the browser against the local face; the overrides are metric ÷ size-adjust. If the file is missing,
+   the fallback simply stays. */
+@font-face {
+  font-family: "Zodiak";
+  src: url("/fonts/Zodiak-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Zodiak Fallback";
+  src: local("Georgia Bold"), local("Georgia-Bold");
+  font-weight: 100 600;
+  size-adjust: 99.72%;
+  ascent-override: 99.28%;
+  descent-override: 28.08%;
+  line-gap-override: 9.03%;
+}
+@font-face {
+  font-family: "Zodiak Fallback";
+  src: local("Georgia Bold"), local("Georgia-Bold");
+  font-weight: 700 900;
+  size-adjust: 102.67%;
+  ascent-override: 96.43%;
+  descent-override: 27.27%;
+  line-gap-override: 8.77%;
+}
+/* The same for the body face while Fira Sans (935/265/0 on 1000) loads: Arial for 400 and 500, Arial Bold for 600
+   and 700, each sized to Fira's width at that weight. */
+@font-face {
+  font-family: "Fira Sans Fallback";
+  src: local("Arial"), local("ArialMT");
+  font-weight: 100 500;
+  size-adjust: 101.7%;
+  ascent-override: 91.94%;
+  descent-override: 26.06%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Fira Sans Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 600 900;
+  size-adjust: 94.8%;
+  ascent-override: 98.63%;
+  descent-override: 27.95%;
+  line-gap-override: 0%;
 }
 
 html { color-scheme: light dark; }

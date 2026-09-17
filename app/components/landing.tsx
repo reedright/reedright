@@ -1,6 +1,7 @@
 // The landing page, shown at / to visitors who are not logged in.
 // Copy, voice, and design rules live in docs/positioning.md. Above the fold these words never appear:
 // pull request, merge, lint, frontmatter, YAML, MCP, token, git, GitHub.
+import { preload } from "react-dom";
 import { Link } from "react-router";
 import { Badge } from "./ui";
 import { Lockup } from "./mark";
@@ -12,8 +13,14 @@ const secondary = "inline-flex items-center justify-center rounded-md border bor
 const muted = "text-stone-600 dark:text-stone-400";
 const card = "rounded-lg border border-stone-200 bg-white p-5 dark:border-stone-800 dark:bg-stone-900";
 const accent = "text-reed dark:text-reed-light";
+// The page's headings only: Zodiak, a grotesque slab, at the sizes where its slabs and ball terminals earn their keep.
+// Nothing else on the page or in the app uses it. The face and its fallback are declared in app.css.
+const h1 = "font-slab text-[2rem] leading-[1.15] font-bold md:text-[2.5rem]";
+const h2 = "font-slab text-[1.75rem] font-semibold leading-tight";
 
 export function Landing() {
+  // The heading face is the largest text above the fold, so it starts downloading with the document.
+  preload("/fonts/Zodiak-Variable.woff2", { as: "font", type: "font/woff2", crossOrigin: "anonymous" });
   return (
     <div className="text-[17px] leading-[1.55]">
       <header className="border-b border-stone-200 dark:border-stone-800">
@@ -55,7 +62,7 @@ export function Landing() {
 
         <section id="how" className="scroll-mt-6 border-y border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
           <div className="mx-auto max-w-5xl px-6 py-14">
-            <h2 className="text-[1.75rem] font-semibold leading-tight tracking-tight">How it works</h2>
+            <h2 className={h2}>How it works</h2>
             <ol className="mt-6 grid gap-6 md:grid-cols-3">
               {steps.map(([head, body], i) => (
                 <li key={head} className="flex gap-4">
@@ -71,7 +78,7 @@ export function Landing() {
         </section>
 
         <section className="mx-auto max-w-5xl px-6 py-14 md:py-20">
-          <h2 className="text-[1.75rem] font-semibold leading-tight tracking-tight">How teams use it</h2>
+          <h2 className={h2}>How teams use it</h2>
           <ul className="mt-6 grid gap-4 md:grid-cols-2">
             {uses.map(([role, quote]) => (
               <li key={role} className={card}>
@@ -84,7 +91,7 @@ export function Landing() {
 
         <section id="faq" className="scroll-mt-6 border-t border-stone-200 dark:border-stone-800">
           <div className="mx-auto max-w-5xl px-6 py-14 md:py-20">
-            <h2 className="text-[1.75rem] font-semibold leading-tight tracking-tight">Questions</h2>
+            <h2 className={h2}>Questions</h2>
             <dl className="mt-6 grid gap-x-10 gap-y-8 md:grid-cols-2">
               {faq.map(([q, a]) => (
                 <div key={q}>
@@ -104,7 +111,7 @@ export function Landing() {
           <div className="relative overflow-hidden rounded-lg border border-stone-200 bg-white p-8 dark:border-stone-800 dark:bg-stone-900 md:min-h-[17rem] md:p-10">
             <Art name="band" preserveAspectRatio="xMaxYMax meet" className="pointer-events-none absolute inset-y-4 right-0 hidden h-[calc(100%-1rem)] w-auto text-stone-900 opacity-20 sm:block dark:text-stone-100 dark:opacity-25" />
             <div className="relative max-w-md">
-              <h2 className="text-[1.75rem] font-semibold leading-tight tracking-tight">Give every AI tool the same brain.</h2>
+              <h2 className={h2}>Give every AI tool the same brain.</h2>
               <p className={`mt-2 ${muted}`}>Free for small teams. 2 minutes to connect the first tool.</p>
               <Link to="/signup" className={`${primary} mt-6`}>Sign up free</Link>
             </div>
@@ -125,11 +132,11 @@ function Hero() {
     <section className="mx-auto grid max-w-5xl gap-10 px-6 py-14 md:grid-cols-[1.25fr_1fr] md:items-center md:py-24">
       <div>
         <p className={`text-sm font-semibold tracking-wide uppercase ${accent}`}>Shared context for AI-forward teams</p>
-        <h1 className="mt-3 text-[2rem] leading-[1.15] font-bold tracking-tight md:text-[2.5rem]">
-          Every agent reads it.<br className="hidden md:block" /> Anyone can add to it.<br className="hidden md:block" /> The right person approves it.
+        <h1 className={`mt-3 ${h1}`}>
+          Every agent reads it.<br className="hidden md:block" /> Anyone can add to it.<br className="hidden md:block" /> Approve + review <br className="hidden md:block" /> according to you 
         </h1>
         <p className={`mt-5 max-w-xl text-lg ${muted}`}>
-          reedright is your company's brain: one reviewed source of what you know. Claude, ChatGPT, and the agents you build read it before they answer. Your team browses it on a website. Underneath, it is plain files you own.
+          <code>reedright</code> is your company's brain: one reviewed source of what you know. Claude, ChatGPT, and the agents you build read it before they answer. Your team browses it on a website. Underneath, it is plain files you own.
         </p>
         <div className="mt-7 flex flex-wrap gap-3">
           <Link to="/signup" className={primary}>Sign up free</Link>
@@ -147,7 +154,7 @@ function Sidekick({ n, title, children, visual, flip = false }: { n: string; tit
     <section className="mx-auto grid max-w-5xl gap-8 px-6 py-14 md:grid-cols-2 md:items-center md:py-20">
       <div className={flip ? "md:order-2" : ""}>
         <p className={`text-sm font-semibold ${accent}`}>{n}</p>
-        <h2 className="mt-2 text-[1.75rem] font-semibold leading-tight tracking-tight">{title}</h2>
+        <h2 className={`mt-2 ${h2}`}>{title}</h2>
         <div className={`mt-4 space-y-3 ${muted}`}>{children}</div>
       </div>
       <div className={flip ? "md:order-1" : ""}>{visual}</div>
